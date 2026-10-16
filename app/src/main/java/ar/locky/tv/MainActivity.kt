@@ -76,6 +76,7 @@ class MainActivity : Activity() {
     private lateinit var messageTitle: TextView
     private lateinit var messageBody: TextView
     private lateinit var messageQr: ImageView
+    private lateinit var messageMascot: ImageView
     private lateinit var btnPrimary: Button
     private lateinit var btnSecondary: Button
     private lateinit var appsPanel: View
@@ -336,8 +337,10 @@ class MainActivity : Activity() {
         if (qr != null) {
             messageQr.setImageBitmap(QrCode.bitmap(qr))
             messageQr.visibility = View.VISIBLE
+            messageMascot.visibility = View.GONE   // no entran los dos en la pantalla
         } else {
             messageQr.visibility = View.GONE
+            messageMascot.visibility = View.VISIBLE
         }
         btnPrimary.text = primary.first
         btnPrimary.setOnClickListener { primary.second() }
@@ -432,6 +435,7 @@ class MainActivity : Activity() {
         messageTitle = findViewById(R.id.messageTitle)
         messageBody = findViewById(R.id.messageBody)
         messageQr = findViewById(R.id.messageQr)
+        messageMascot = findViewById(R.id.messageMascot)
         btnPrimary = findViewById(R.id.btnPrimary)
         btnSecondary = findViewById(R.id.btnSecondary)
         appsPanel = findViewById(R.id.appsPanel)

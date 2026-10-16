@@ -11,8 +11,8 @@ android {
         applicationId = "ar.locky.tv"
         minSdk = 21          // Android 5.0: cubre prácticamente todos los Android TV
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         // Link de donaciones (por ejemplo https://ceneka.net/tu-pagina).
         // Vacío = el botón "Donar" no aparece. Fase 2: completar y listo.
