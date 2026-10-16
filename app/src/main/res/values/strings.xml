@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Locky</string>
+    <string name="apps_title">¿Qué querés abrir?</string>
+    <string name="reconnect">Cambiar servidor</string>
+    <string name="disconnect">Desconectar</string>
+    <string name="donate">♥ Apoyar</string>
+</resources>

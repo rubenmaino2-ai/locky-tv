@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paleta de Locky: verde y dorado sobre fondo oscuro. Cambiar acá cambia toda la app. -->
+<resources>
+    <color name="bg">#0E1411</color>
+    <color name="surface">#18221C</color>
+    <color name="surface_light">#223029</color>
+    <color name="accent">#2FBF71</color>
+    <color name="gold">#E5B83B</color>
+    <color name="danger">#FF6B6B</color>
+    <color name="text">#EEF3EF</color>
+    <color name="text_secondary">#93A39A</color>
+    <color name="on_accent">#0E1411</color>
+</resources>

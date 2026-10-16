@@ -1,0 +1,47 @@
+# Compila el APK automáticamente cada vez que se sube un cambio a "main".
+# El APK queda en: pestaña "Releases" del repo -> "Locky TV (última versión)".
+name: Compilar APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # permite compilar a mano desde la pestaña Actions
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Preparar APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk locky-tv.apk
+
+      - name: Guardar APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: locky-tv-apk
+          path: locky-tv.apk
+
+      - name: Publicar en Releases (siempre la última versión)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima --yes --cleanup-tag || true
+          gh release create ultima locky-tv.apk \
+            --title "Locky TV (última versión · compilación #${{ github.run_number }})" \
+            --notes "APK compilado automáticamente. Descargá locky-tv.apk e instalalo en el TV."

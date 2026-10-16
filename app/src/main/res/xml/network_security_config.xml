@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo permitimos HTTP sin cifrar para la lista de VPN Gate (respaldo si falla HTTPS) -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">vpngate.net</domain>
+    </domain-config>
+</network-security-config>

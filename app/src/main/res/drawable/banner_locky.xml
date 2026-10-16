@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Banner para el menú del TV (320x180): candado + "LOCKY" en trazos -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#0E1411" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#2FBF71" android:pathData="M0,170h320v10h-320z" />
+
+    <group android:translateX="16" android:translateY="48" android:scaleX="1.75" android:scaleY="1.75">
+        <path android:fillColor="#2FBF71"
+            android:pathData="M24,24m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+        <path android:fillColor="#00000000" android:strokeColor="#0E1411" android:strokeWidth="3.5"
+            android:strokeLineCap="round" android:pathData="M18,22v-5a6,6 0,0 1,12 0v5" />
+        <path android:fillColor="#E5B83B"
+            android:pathData="M15,22h18a2,2 0,0 1,2 2v12a2,2 0,0 1,-2 2h-18a2,2 0,0 1,-2 -2v-12a2,2 0,0 1,2 -2z" />
+        <path android:fillColor="#0E1411"
+            android:pathData="M24,29m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+    </group>
+
+    <!-- L O C K Y -->
+    <path android:fillColor="#00000000" android:strokeColor="#EEF3EF" android:strokeWidth="7"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M120,65v50h26 M166,65h14a8,8 0,0 1,8 8v34a8,8 0,0 1,-8 8h-14a8,8 0,0 1,-8 -8v-34a8,8 0,0 1,8 -8z M226,65h-26v50h26 M236,65v50 M262,65L240,90L262,115 M274,65L288,90L302,65 M288,90v25" />
+</vector>
