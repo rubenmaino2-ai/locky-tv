@@ -102,7 +102,7 @@
                 android:layout_height="200dp"
                 android:adjustViewBounds="true"
                 android:contentDescription="@null"
-                android:src="@drawable/mascot_locky" />
+                android:src="@drawable/locky_poster" />
 
             <ProgressBar
                 style="?android:attr/progressBarStyle"
@@ -147,7 +147,7 @@
                 android:layout_marginBottom="12dp"
                 android:adjustViewBounds="true"
                 android:contentDescription="@null"
-                android:src="@drawable/mascot_locky" />
+                android:src="@drawable/locky_poster" />
 
             <TextView
                 android:id="@+id/messageTitle"
@@ -227,60 +227,73 @@
     </FrameLayout>
 </LinearLayout>
 
-    <!-- Pantalla de bienvenida: Locky en grande mientras se conecta (mínimo 10 s) -->
-    <LinearLayout
+    <!-- Pantalla de bienvenida: el póster de Locky a pantalla completa (mínimo 10 s) -->
+    <FrameLayout
         android:id="@+id/splashPanel"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/bg"
         android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:paddingTop="24dp"
-        android:paddingBottom="28dp">
+        android:focusable="true">
 
         <ImageView
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:adjustViewBounds="true"
+            android:layout_height="match_parent"
             android:contentDescription="@string/app_name"
-            android:scaleType="fitCenter"
-            android:src="@drawable/logo_locky" />
+            android:scaleType="centerCrop"
+            android:src="@drawable/locky_poster" />
+
+        <!-- Sombra abajo para que se lea el texto sobre la imagen -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/splash_fade" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_gravity="bottom"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="28dp">
 
-            <ProgressBar
-                android:id="@+id/splashSpinner"
-                style="?android:attr/progressBarStyleSmall"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_marginEnd="12dp"
-                android:indeterminateTint="@color/accent" />
-
-            <TextView
-                android:id="@+id/splashTitle"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Conectando…"
-                android:textColor="@color/text"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/splashDetail"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:gravity="center"
-            android:textColor="@color/text_secondary"
-            android:textSize="18sp" />
-    </LinearLayout>
+                <ProgressBar
+                    android:id="@+id/splashSpinner"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginEnd="12dp"
+                    android:indeterminateTint="@color/accent" />
+
+                <TextView
+                    android:id="@+id/splashTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:shadowColor="#CC000000"
+                    android:shadowRadius="6"
+                    android:text="Conectando…"
+                    android:textColor="@color/text"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/splashDetail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:shadowColor="#CC000000"
+                android:shadowRadius="6"
+                android:textColor="@color/text"
+                android:textSize="18sp" />
+        </LinearLayout>
+    </FrameLayout>
 </FrameLayout>
