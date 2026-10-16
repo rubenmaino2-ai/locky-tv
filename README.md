@@ -5,10 +5,11 @@ App para Android TV que **conecta una VPN gratuita y después abre la app que el
 ## Cómo funciona
 
 1. Abrís Locky.
-2. Descarga la lista de servidores públicos de **VPN Gate** (red de voluntarios de la Universidad de Tsukuba, Japón).
-3. Prueba los mejores servidores, de cualquier país, hasta que uno conecta.
-4. Muestra las apps instaladas en el TV. Elegís una y se abre (la última que usaste aparece primera).
-5. Arriba siempre ves si la VPN está conectada, con botones para cambiar de servidor o desconectar.
+2. Descarga la lista de servidores públicos de **VPN Gate** (red de voluntarios de la Universidad de Tsukuba, Japón). Si no responde, usa la última lista guardada.
+3. Elige los mejores para tu casa: les hace un ping desde el TV, prefiere países cercanos, mira velocidad y carga, castiga 1 hora a los que fallan y prioriza el último que anduvo bien.
+4. Prueba hasta que uno conecta y mide la velocidad real (se muestra arriba).
+5. Muestra las apps instaladas en el TV. Elegís una y se abre (la última que usaste aparece primera).
+6. Arriba siempre ves si la VPN está conectada, con botones para cambiar de servidor o desconectar.
 
 La conexión VPN la hace la app gratuita **OpenVPN for Android** (`de.blinkt.openvpn`). Locky le pasa el servidor y le da las órdenes; vos no necesitás abrirla nunca.
 
@@ -35,6 +36,9 @@ Cada cambio que se sube a `main` se compila solo con GitHub Actions (`.github/wo
 |---|---|
 | `app/src/main/java/ar/locky/tv/MainActivity.kt` | Pantalla y flujo completo (conectar → elegir app) |
 | `.../vpn/VpnGateClient.kt` | Descarga y ordena los servidores de VPN Gate |
+| `.../vpn/ServerPicker.kt` | Elige el mejor servidor (ping, cercanía, castigos) |
+| `.../util/SpeedTest.kt` | Mide la velocidad real por la VPN |
+| `.../VpnTimerService.kt` | Temporizador que apaga la VPN |
 | `.../vpn/OpenVpnEngine.kt` | Le da órdenes a OpenVPN for Android |
 | `.../apps/TvApps.kt` | Lista y abre las apps instaladas |
 | `.../util/QrCode.kt` | Genera códigos QR |

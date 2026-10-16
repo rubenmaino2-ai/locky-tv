@@ -58,6 +58,12 @@
             android:layout_weight="1" />
 
         <Button
+            android:id="@+id/btnTimer"
+            style="@style/LockyButton"
+            android:text="⏱ Apagar en…"
+            android:visibility="gone" />
+
+        <Button
             android:id="@+id/btnReconnect"
             style="@style/LockyButton"
             android:text="@string/reconnect"

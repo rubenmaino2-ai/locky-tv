@@ -21,8 +21,12 @@ import ar.locky.tv.apps.TvApp
 import ar.locky.tv.apps.TvApps
 import ar.locky.tv.util.NetworkUtil
 import ar.locky.tv.util.QrCode
+import ar.locky.tv.util.SpeedTest
 import ar.locky.tv.vpn.OpenVpnEngine
+import ar.locky.tv.vpn.RankedServer
+import ar.locky.tv.vpn.ServerPicker
 import ar.locky.tv.vpn.VpnGateClient
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +70,9 @@ class MainActivity : Activity() {
     private var monitorJob: Job? = null
     private var pendingPermission: CompletableDeferred<Boolean>? = null
     private var connectedCountry: String? = null
+    private var connectedMbps: Double? = null
+    private var speedJob: Job? = null
+    private lateinit var btnTimer: Button
     private var apps: List<TvApp> = emptyList()
 
     private lateinit var statusChip: TextView
@@ -104,6 +111,7 @@ class MainActivity : Activity() {
 
         btnReconnect.setOnClickListener { startFlow(forceNew = true) }
         btnDisconnect.setOnClickListener { disconnect() }
+        btnTimer.setOnClickListener { cycleTimer() }
         btnDonate.visibility = if (BuildConfig.DONATION_URL.isNotBlank()) View.VISIBLE else View.GONE
         btnDonate.setOnClickListener { showDonation() }
         appsGrid.setOnItemClickListener { _, _, position, _ -> openApp(apps[position]) }
@@ -211,31 +219,50 @@ class MainActivity : Activity() {
             waitUntilVpnDown()
         }
 
-        // 4. Buscar servidores.
+        // 4. Buscar servidores (si vpngate.net no responde, usa la última lista guardada).
         showProgress("Buscando servidores…", "Descargando la lista de VPN Gate")
-        val servers = try {
-            VpnGateClient.fetchServers()
+        val list = try {
+            VpnGateClient.fetchServers(File(cacheDir, "vpngate.csv"))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            showError("No pude bajar la lista de servidores", "Revisá la conexión a internet del TV.\n(${e.message})")
-            return
+            null
         }
 
-        // 5. Probar uno por uno hasta que conecte.
-        val candidates = servers.take(MAX_TRIES)
-        for ((index, server) in candidates.withIndex()) {
+        // 5. Elegir los mejores para TU casa: ping real, cercanía, velocidad, castigos.
+        val candidates: List<RankedServer> = if (list != null) {
+            val origin = if (list.fromCache) " (lista guardada)" else ""
+            showProgress("Eligiendo el mejor servidor…", "Midiendo la distancia a los servidores$origin")
+            val ranked = ServerPicker.rank(this, list.servers)
+            ranked.filter { it.alive }.take(MAX_TRIES).ifEmpty { ranked.take(MAX_TRIES) }
+        } else {
+            // Ni lista nueva ni guardada: probamos con el último que anduvo.
+            val last = ServerPicker.lastGoodServer(this)
+            if (last == null) {
+                showError("No pude bajar la lista de servidores", "Revisá la conexión a internet del TV y tocá Reintentar.")
+                return
+            }
+            listOf(RankedServer(last, ServerPicker.ping(last), 0))
+        }
+
+        // 6. Probar uno por uno hasta que conecte.
+        for ((index, ranked) in candidates.withIndex()) {
+            val server = ranked.server
             val serverInfo = "VPN Gate · ${server.hostName} · ${server.countryEs}"
+            val pingText = if (ranked.alive) " · ${ranked.pingMs} ms" else ""
             showProgress(
                 "Conectando…",
-                "$serverInfo  (servidor ${index + 1} de ${candidates.size})"
+                "$serverInfo$pingText  (servidor ${index + 1} de ${candidates.size})"
             )
             engine.start(server.ovpnConfig)
             if (waitForConnection()) {
+                ServerPicker.recordSuccess(this, server)
                 connectedCountry = server.countryEs
+                connectedMbps = null
                 showApps(connectedInfo = serverInfo)
                 return
             }
+            ServerPicker.recordFailure(this, server)
             engine.stop()
             waitUntilVpnDown()
         }
@@ -283,8 +310,10 @@ class MainActivity : Activity() {
 
     /** Corta la VPN. Devuelve true si quedó efectivamente apagada. */
     private suspend fun disconnectVpn(): Boolean {
+        VpnTimerService.cancel(this)   // si había temporizador, ya no hace falta
         val bound = withTimeoutOrNull(5_000) { engine.bind() } ?: false
         if (bound) engine.stop()
+        connectedMbps = null
         delay(1_500)
         refreshStatus()
         val stillOn = NetworkUtil.isVpnActive(this)
@@ -361,6 +390,49 @@ class MainActivity : Activity() {
         releaseSplash(focusTarget = appsGrid)
         appsGrid.setSelection(0)
         startMonitor()
+        if (connectedMbps == null) runSpeedTest()
+    }
+
+    /** Mide la velocidad real por la VPN y la muestra (bienvenida + indicador de arriba). */
+    private fun runSpeedTest() {
+        speedJob?.cancel()
+        speedJob = scope.launch {
+            delay(1_500)
+            if (!NetworkUtil.isVpnActive(this@MainActivity)) return@launch
+            val mbps = SpeedTest.measureMbps() ?: return@launch
+            connectedMbps = mbps
+            if (splashPanel.visibility == View.VISIBLE) {
+                splashDetail.text = "${splashDetail.text}\nVelocidad: ${SpeedTest.describe(mbps)}"
+            }
+            refreshStatus()
+            if (mbps < 4) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Conexión lenta (${SpeedTest.describe(mbps)}). Podés tocar \"Cambiar servidor\".",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- temporizador de apagado
+
+    private val timerOptions = listOf(30, 60, 120, 180)   // minutos
+
+    /** Cada toque pasa a la siguiente opción: 30 min → 1 h → 2 h → 3 h → sin temporizador. */
+    private fun cycleTimer() {
+        val remaining = VpnTimerService.remainingMs(this)
+        val currentMin = ((remaining + 59_999) / 60_000).toInt()
+        val next = if (remaining <= 0) timerOptions.first()
+            else timerOptions.firstOrNull { it > currentMin }
+        if (next == null) {
+            VpnTimerService.cancel(this)
+            Toast.makeText(this, "Temporizador cancelado", Toast.LENGTH_SHORT).show()
+        } else {
+            VpnTimerService.start(this, next)
+            Toast.makeText(this, "La VPN se apaga en ${VpnTimerService.format(next * 60_000L)}", Toast.LENGTH_SHORT).show()
+        }
+        refreshStatus()
     }
 
     private fun openApp(app: TvApp) {
@@ -390,16 +462,24 @@ class MainActivity : Activity() {
     }
 
     private fun refreshStatus() {
+        val appsVisible = appsPanel.visibility == View.VISIBLE
         if (NetworkUtil.isVpnActive(this)) {
-            statusChip.text = connectedCountry?.let { "●  VPN conectada · $it" } ?: "●  VPN conectada"
-            statusChip.setTextColor(color(R.color.accent))
+            val parts = mutableListOf("●  VPN conectada")
+            connectedCountry?.let { parts += it }
+            connectedMbps?.let { parts += if (it < 10) String.format("%.1f Mbps", it) else "${it.toInt()} Mbps" }
+            statusChip.text = parts.joinToString(" · ")
+            statusChip.setTextColor(color(if ((connectedMbps ?: 99.0) < 4) R.color.gold else R.color.accent))
             btnReconnect.text = getString(R.string.reconnect)
-            btnDisconnect.visibility = View.VISIBLE
+            btnDisconnect.visibility = if (appsVisible) View.VISIBLE else View.GONE
+            val left = VpnTimerService.remainingMs(this)
+            btnTimer.text = if (left > 0) "⏱ ${VpnTimerService.format(left)}" else "⏱ Apagar en…"
+            btnTimer.visibility = if (appsVisible) View.VISIBLE else View.GONE
         } else {
             statusChip.text = "●  VPN desconectada"
             statusChip.setTextColor(color(R.color.danger))
             btnReconnect.text = "Conectar"
             btnDisconnect.visibility = View.GONE
+            btnTimer.visibility = View.GONE
         }
     }
 
@@ -412,6 +492,7 @@ class MainActivity : Activity() {
         if (panel !== appsPanel) {
             btnReconnect.visibility = View.GONE
             btnDisconnect.visibility = View.GONE
+            btnTimer.visibility = View.GONE
         }
     }
 
@@ -567,6 +648,7 @@ class MainActivity : Activity() {
         btnSecondary = findViewById(R.id.btnSecondary)
         appsPanel = findViewById(R.id.appsPanel)
         appsGrid = findViewById(R.id.appsGrid)
+        btnTimer = findViewById(R.id.btnTimer)
         splashPanel = findViewById(R.id.splashPanel)
         splashTitle = findViewById(R.id.splashTitle)
         splashDetail = findViewById(R.id.splashDetail)
