@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 /** Un servidor público de VPN Gate (red de voluntarios de la Univ. de Tsukuba, Japón). */
 data class VpnServer(
@@ -17,7 +18,12 @@ data class VpnServer(
     val countryCode: String,
     val sessions: Int,
     val ovpnConfig: String
-)
+) {
+    /** País en castellano ("JP" -> "Japón"); si Android no lo conoce, el nombre en inglés. */
+    val countryEs: String
+        get() = Locale("", countryCode).getDisplayCountry(Locale("es", "AR"))
+            .takeIf { it.isNotBlank() && it != countryCode } ?: country
+}
 
 /**
  * Descarga y ordena la lista de servidores de VPN Gate.

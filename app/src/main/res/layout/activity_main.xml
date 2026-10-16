@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Pantalla única de Locky. Se muestra UNO de los 3 paneles a la vez:
      progreso (conectando), mensaje (error / falta algo) o grilla de apps. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+<LinearLayout
+    android:id="@+id/mainContent"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
@@ -214,3 +220,61 @@
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>
+
+    <!-- Pantalla de bienvenida: Locky en grande mientras se conecta (mínimo 10 s) -->
+    <LinearLayout
+        android:id="@+id/splashPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="24dp"
+        android:paddingBottom="28dp">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:adjustViewBounds="true"
+            android:contentDescription="@string/app_name"
+            android:scaleType="fitCenter"
+            android:src="@drawable/logo_locky" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ProgressBar
+                android:id="@+id/splashSpinner"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginEnd="12dp"
+                android:indeterminateTint="@color/accent" />
+
+            <TextView
+                android:id="@+id/splashTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Conectando…"
+                android:textColor="@color/text"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/splashDetail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="@color/text_secondary"
+            android:textSize="18sp" />
+    </LinearLayout>
+</FrameLayout>

@@ -50,6 +50,7 @@ class MainActivity : Activity() {
         private const val REQ_VPN = 102
         private const val MAX_TRIES = 10                 // servidores a probar como máximo
         private const val CONNECT_TIMEOUT_MS = 20_000L   // espera por servidor
+        private const val SPLASH_MIN_MS = 10_000L        // bienvenida con el logo de Locky
         private const val KEY_LAST_APP = "last_app"
         private const val OPENVPN_STORE_URL =
             "https://play.google.com/store/apps/details?id=de.blinkt.openvpn"
@@ -81,6 +82,14 @@ class MainActivity : Activity() {
     private lateinit var btnSecondary: Button
     private lateinit var appsPanel: View
     private lateinit var appsGrid: GridView
+    private lateinit var splashPanel: View
+    private lateinit var splashTitle: TextView
+    private lateinit var splashDetail: TextView
+    private lateinit var splashSpinner: View
+
+    /** Momento hasta el cual la bienvenida queda sí o sí en pantalla. */
+    private var splashUntil = 0L
+    private var splashHideJob: Job? = null
 
     // ---------------------------------------------------------------- ciclo de vida
 
@@ -96,6 +105,11 @@ class MainActivity : Activity() {
         btnDonate.visibility = if (BuildConfig.DONATION_URL.isNotBlank()) View.VISIBLE else View.GONE
         btnDonate.setOnClickListener { showDonation() }
         appsGrid.setOnItemClickListener { _, _, position, _ -> openApp(apps[position]) }
+
+        // Bienvenida: Locky en pantalla completa como mínimo SPLASH_MIN_MS,
+        // mientras por detrás ya se está conectando la VPN.
+        splashUntil = SystemClock.elapsedRealtime() + SPLASH_MIN_MS
+        splashPanel.requestFocus()
 
         startFlow(forceNew = false)
     }
@@ -140,7 +154,7 @@ class MainActivity : Activity() {
     private suspend fun connectFlow(forceNew: Boolean) {
         // 1. Si ya hay una VPN andando, no hace falta hacer nada.
         if (!forceNew && NetworkUtil.isVpnActive(this)) {
-            showApps()
+            showApps(connectedInfo = "Tu VPN ya estaba activa")
             return
         }
 
@@ -193,14 +207,15 @@ class MainActivity : Activity() {
         // 5. Probar uno por uno hasta que conecte.
         val candidates = servers.take(MAX_TRIES)
         for ((index, server) in candidates.withIndex()) {
+            val serverInfo = "VPN Gate · ${server.hostName} · ${server.countryEs}"
             showProgress(
                 "Conectando…",
-                "Servidor ${index + 1} de ${candidates.size} · ${server.country} · ${server.pingMs} ms"
+                "$serverInfo  (servidor ${index + 1} de ${candidates.size})"
             )
             engine.start(server.ovpnConfig)
             if (waitForConnection()) {
-                connectedCountry = server.country
-                showApps()
+                connectedCountry = server.countryEs
+                showApps(connectedInfo = serverInfo)
                 return
             }
             engine.stop()
@@ -258,12 +273,16 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- apps
 
-    private fun showApps() {
+    private fun showApps(connectedInfo: String) {
+        splashTitle.text = "¡Conectado!"
+        splashTitle.setTextColor(color(R.color.accent))
+        splashDetail.text = connectedInfo
+        splashSpinner.visibility = View.GONE
         apps = TvApps.load(this, prefs.getString(KEY_LAST_APP, null))
         appsGrid.adapter = AppGridAdapter(apps)
         showPanel(appsPanel)
         btnReconnect.visibility = View.VISIBLE
-        appsGrid.requestFocus()
+        releaseSplash(focusTarget = appsGrid)
         appsGrid.setSelection(0)
         startMonitor()
     }
@@ -323,6 +342,31 @@ class MainActivity : Activity() {
         statusChip.text = "●  Conectando…"
         statusChip.setTextColor(color(R.color.gold))
         showPanel(progressPanel)
+        // Si la bienvenida está en pantalla, el progreso se ve ahí abajo del logo.
+        splashTitle.text = title
+        splashTitle.setTextColor(color(R.color.text))
+        splashDetail.text = detail
+        splashSpinner.visibility = View.VISIBLE
+    }
+
+    /**
+     * Saca la bienvenida, pero recién cuando se cumplieron los 10 segundos.
+     * Mientras tanto, el logo sigue en pantalla con el resultado ("¡Conectado!").
+     */
+    private fun releaseSplash(focusTarget: View) {
+        if (splashPanel.visibility != View.VISIBLE) {
+            focusTarget.requestFocus()
+            return
+        }
+        splashHideJob?.cancel()
+        splashHideJob = scope.launch {
+            val remaining = splashUntil - SystemClock.elapsedRealtime()
+            if (remaining > 0) delay(remaining)
+            splashPanel.animate().alpha(0f).setDuration(500).withEndAction {
+                splashPanel.visibility = View.GONE
+                focusTarget.requestFocus()
+            }.start()
+        }
     }
 
     private fun showMessage(
@@ -354,7 +398,11 @@ class MainActivity : Activity() {
         statusChip.text = "●  VPN desconectada"
         statusChip.setTextColor(color(R.color.danger))
         showPanel(messagePanel)
-        btnPrimary.requestFocus()
+        splashTitle.text = title
+        splashTitle.setTextColor(color(R.color.danger))
+        splashDetail.text = ""
+        splashSpinner.visibility = View.GONE
+        releaseSplash(focusTarget = btnPrimary)
     }
 
     private fun showError(title: String, body: String) {
@@ -440,5 +488,9 @@ class MainActivity : Activity() {
         btnSecondary = findViewById(R.id.btnSecondary)
         appsPanel = findViewById(R.id.appsPanel)
         appsGrid = findViewById(R.id.appsGrid)
+        splashPanel = findViewById(R.id.splashPanel)
+        splashTitle = findViewById(R.id.splashTitle)
+        splashDetail = findViewById(R.id.splashDetail)
+        splashSpinner = findViewById(R.id.splashSpinner)
     }
 }
