@@ -45,6 +45,14 @@ object TvApps {
         )
     }
 
+    /** Nombre visible de una app ("Netflix"); si no se encuentra, el paquete. */
+    fun labelOf(context: Context, packageName: String): String = try {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+    } catch (e: Exception) {
+        packageName
+    }
+
     fun launch(context: Context, packageName: String): Boolean {
         val pm = context.packageManager
         val intent = pm.getLeanbackLaunchIntentForPackage(packageName)

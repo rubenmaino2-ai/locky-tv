@@ -52,6 +52,8 @@ class MainActivity : Activity() {
         private const val CONNECT_TIMEOUT_MS = 20_000L   // espera por servidor
         private const val SPLASH_MIN_MS = 10_000L        // bienvenida con el logo de Locky
         private const val KEY_LAST_APP = "last_app"
+        private const val KEY_RETURN_FROM = "return_from"   // app que abrimos y de la que se espera volver
+        private const val RETURN_COUNTDOWN_S = 5            // segundos antes de cortar la VPN al volver
         private const val OPENVPN_STORE_URL =
             "https://play.google.com/store/apps/details?id=de.blinkt.openvpn"
     }
@@ -108,16 +110,32 @@ class MainActivity : Activity() {
 
         // Bienvenida: Locky en pantalla completa como mínimo SPLASH_MIN_MS,
         // mientras por detrás ya se está conectando la VPN.
-        splashUntil = SystemClock.elapsedRealtime() + SPLASH_MIN_MS
-        splashPanel.requestFocus()
-
-        startFlow(forceNew = false)
+        // Excepción: si volvemos de una app que abrió Locky (y la VPN sigue prendida),
+        // no hay bienvenida: onResume muestra directamente la cuenta regresiva.
+        if (isReturningFromApp()) {
+            splashPanel.visibility = View.GONE
+        } else {
+            splashUntil = SystemClock.elapsedRealtime() + SPLASH_MIN_MS
+            splashPanel.requestFocus()
+            startFlow(forceNew = false)
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        val returnedFrom = prefs.getString(KEY_RETURN_FROM, null)
+        if (returnedFrom != null) {
+            prefs.edit().remove(KEY_RETURN_FROM).apply()
+            if (NetworkUtil.isVpnActive(this)) {
+                showReturnCountdown(returnedFrom)
+                return
+            }
+        }
         if (appsPanel.visibility == View.VISIBLE) refreshStatus()
     }
+
+    private fun isReturningFromApp() =
+        prefs.getString(KEY_RETURN_FROM, null) != null && NetworkUtil.isVpnActive(this)
 
     override fun onDestroy() {
         scope.cancel()
@@ -260,14 +278,72 @@ class MainActivity : Activity() {
     }
 
     private fun disconnect() {
-        scope.launch {
-            val bound = withTimeoutOrNull(5_000) { engine.bind() } ?: false
-            if (bound) engine.stop()
-            delay(1_500)
-            refreshStatus()
-            if (NetworkUtil.isVpnActive(this@MainActivity)) {
-                Toast.makeText(this@MainActivity, "No pude cortar la VPN (la prendió otra app)", Toast.LENGTH_LONG).show()
+        scope.launch { disconnectVpn() }
+    }
+
+    /** Corta la VPN. Devuelve true si quedó efectivamente apagada. */
+    private suspend fun disconnectVpn(): Boolean {
+        val bound = withTimeoutOrNull(5_000) { engine.bind() } ?: false
+        if (bound) engine.stop()
+        delay(1_500)
+        refreshStatus()
+        val stillOn = NetworkUtil.isVpnActive(this)
+        if (stillOn) {
+            Toast.makeText(this, "No pude cortar la VPN (la prendió otra app)", Toast.LENGTH_LONG).show()
+        }
+        return !stillOn
+    }
+
+    // ---------------------------------------------------------------- volver de otra app
+
+    private var countdownJob: Job? = null
+
+    /**
+     * Volviste a Locky desde la app que abriste: cuenta regresiva y se corta la VPN,
+     * salvo que elijas "Seguir conectado".
+     */
+    private fun showReturnCountdown(packageName: String) {
+        flowJob?.cancel()
+        countdownJob?.cancel()
+        val appName = TvApps.labelOf(this, packageName)
+        showMessage(
+            title = "¿Terminaste con $appName?",
+            body = countdownText(RETURN_COUNTDOWN_S),
+            primary = "Seguir conectado" to {
+                countdownJob?.cancel()
+                showApps(connectedInfo = "VPN activa")
+            },
+            secondary = "Desconectar ya" to { disconnectNow() }
+        )
+        refreshStatus()
+        countdownJob = scope.launch {
+            for (s in RETURN_COUNTDOWN_S downTo 1) {
+                messageBody.text = countdownText(s)
+                delay(1_000)
             }
+            finishDisconnect()
+        }
+    }
+
+    private fun disconnectNow() {
+        countdownJob?.cancel()
+        countdownJob = scope.launch { finishDisconnect() }
+    }
+
+    private fun countdownText(seconds: Int) =
+        "Desconecto la VPN en $seconds…\nTocá \"Seguir conectado\" si vas a abrir otra app."
+
+    private suspend fun finishDisconnect() {
+        messageBody.text = "Desconectando…"
+        if (disconnectVpn()) {
+            showMessage(
+                title = "Listo, VPN desconectada",
+                body = "Tu TV volvió a navegar normal. ¡Hasta la próxima!",
+                primary = "Salir" to { finish() },
+                secondary = "Volver a conectar" to { startFlow(forceNew = false) }
+            )
+        } else {
+            showApps(connectedInfo = "VPN activa")
         }
     }
 
@@ -294,7 +370,10 @@ class MainActivity : Activity() {
             return
         }
         prefs.edit().putString(KEY_LAST_APP, app.packageName).apply()
-        if (!TvApps.launch(this, app.packageName)) {
+        if (TvApps.launch(this, app.packageName)) {
+            // Al volver a Locky (botón Atrás), onResume ofrece cortar la VPN.
+            prefs.edit().putString(KEY_RETURN_FROM, app.packageName).apply()
+        } else {
             Toast.makeText(this, "No pude abrir ${app.label}", Toast.LENGTH_LONG).show()
         }
     }
