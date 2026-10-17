@@ -354,12 +354,14 @@ class MainActivity : Activity() {
                 "Conectando $label…",
                 "$serverInfo$pingText  (servidor ${index + 1} de ${candidates.size})"
             )
+            LockyVpnEngine.note("probando ${server.hostName} (${server.countryEs}) para $packageName")
             val started = try {
                 engine.start(server.ovpnConfig, setOf(packageName))
                 true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                LockyVpnEngine.note("el motor no aceptó la configuración: ${e.message}")
                 false   // configuración que el motor no acepta: siguiente servidor
             }
             if (started && waitForConnection()) {
@@ -674,13 +676,33 @@ class MainActivity : Activity() {
         releaseSplash(focusTarget = btnPrimary)
     }
 
+    /** Error: "Reintentar" o "Ver detalles" (el registro del motor). Con Atrás se vuelve a las apps. */
     private fun showError(title: String, body: String, retry: () -> Unit) {
         showMessage(
-            title, body,
+            title, "$body\n(Atrás: volver a las apps)",
             primary = "Reintentar" to retry,
-            secondary = "Ver apps" to { showApps() },
+            secondary = "Ver detalles" to { showEngineLog() },
             onBack = { showApps() }
         )
+    }
+
+    /** Lo último que dijo el motor de VPN, en letra chica. Útil para sacarle una foto. */
+    private fun showEngineLog() {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val text = TextView(this).apply {
+            this.text = LockyVpnEngine.recentLog(this@MainActivity)
+            textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setPadding(pad, pad, pad, pad)
+            isFocusable = true   // para poder bajar con el control remoto
+        }
+        val scroll = android.widget.ScrollView(this).apply { addView(text) }
+        AlertDialog.Builder(this)
+            .setTitle("Detalles técnicos (Locky ${BuildConfig.VERSION_NAME})")
+            .setView(scroll)
+            .setPositiveButton("Cerrar", null)
+            .show()
+        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }   // mostrar lo más reciente
     }
 
     private fun showDonation() {

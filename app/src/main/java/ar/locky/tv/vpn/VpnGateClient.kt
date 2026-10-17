@@ -132,14 +132,21 @@ object VpnGateClient {
     }
 
     /**
-     * Los servidores de VPN Gate usan cifrados viejos (AES-128-CBC).
-     * Las versiones nuevas de OpenVPN los rechazan si no se los habilita a mano.
+     * Los servidores de VPN Gate son viejos: cifrado AES-128-CBC sin negociación y
+     * certificados antiguos. El OpenVPN del motor (2.8) los rechaza si no se le
+     * habilita todo eso a mano. Si el .ovpn ya tenía un agregado de una versión
+     * anterior de Locky, se reemplaza por el actual.
      */
-    private fun adapt(config: String): String {
-        if (config.contains("# --- Agregado por Locky")) return config
-        val clean = config.replace("\r\n", "\n").trimEnd()
-        return clean + "\n\n# --- Agregado por Locky (compatibilidad con OpenVPN 2.6) ---\n" +
-            "data-ciphers AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305:AES-128-CBC:AES-256-CBC\n" +
-            "data-ciphers-fallback AES-128-CBC\n"
+    fun adapt(config: String): String {
+        val base = config.replace("\r\n", "\n").substringBefore("\n# --- Agregado por Locky").trimEnd()
+        // El cifrado que usa el servidor (si el .ovpn lo dice); si no, el típico de VPN Gate.
+        val cipher = Regex("(?m)^\\s*cipher\\s+(\\S+)").find(base)?.groupValues?.get(1) ?: "AES-128-CBC"
+        val ciphers = linkedSetOf("AES-256-GCM", "AES-128-GCM", "CHACHA20-POLY1305", "AES-128-CBC", "AES-256-CBC", cipher)
+        return base + "\n\n# --- Agregado por Locky v2 (compatibilidad con OpenVPN 2.8) ---\n" +
+            "data-ciphers ${ciphers.joinToString(":")}\n" +
+            // Servidores sin negociación de cifrado: usar el que dice el .ovpn.
+            "data-ciphers-fallback $cipher\n" +
+            // Aceptar certificados viejos (sin esto, OpenVPN nuevo corta el saludo TLS).
+            "tls-cert-profile insecure\n"
     }
 }

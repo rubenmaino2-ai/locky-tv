@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.net.VpnService
 import android.os.IBinder
+import android.os.SystemClock
 import de.blinkt.openvpn.R as MotorR
 import de.blinkt.openvpn.core.ConfigParser
 import de.blinkt.openvpn.core.ConnectionStatus
@@ -39,6 +40,21 @@ class LockyVpnEngine(context: Context) : VpnEngine {
         fun tunnelApp(context: Context): String? =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TUNNEL_APP, null)
 
+        /**
+         * Las últimas líneas del registro del motor (lo que va diciendo OpenVPN).
+         * Sirve para entender por qué no conecta un servidor.
+         */
+        fun recentLog(context: Context, lines: Int = 40): String {
+            val items = VpnStatus.getlogbuffer()
+            if (items.isEmpty()) return "(el motor no mandó ningún mensaje)"
+            return items.takeLast(lines).joinToString("\n") { item ->
+                try { item.getString(context) } catch (e: Exception) { "?" }
+            }
+        }
+
+        /** Anota una línea propia de Locky en el mismo registro. */
+        fun note(text: String) = VpnStatus.logInfo("Locky: $text")
+
         private fun setTunnelApp(context: Context, packageName: String?) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(KEY_TUNNEL_APP, packageName).apply()
@@ -48,6 +64,9 @@ class LockyVpnEngine(context: Context) : VpnEngine {
     private val appContext = context.applicationContext
 
     @Volatile private var level: ConnectionStatus? = null
+    @Volatile private var startedAt = 0L
+    @Volatile private var sawProgress = false   // el motor ya empezó a intentar conectar
+    @Volatile private var exited = false        // ...y después se cortó solo
 
     private val statusListener = object : VpnStatus.StateListener {
         override fun updateState(
@@ -55,6 +74,14 @@ class LockyVpnEngine(context: Context) : VpnEngine {
             level: ConnectionStatus?, intent: Intent?
         ) {
             this@LockyVpnEngine.level = level
+            if (level != null && level != ConnectionStatus.LEVEL_NOTCONNECTED) {
+                sawProgress = true
+            } else if (level == ConnectionStatus.LEVEL_NOTCONNECTED && sawProgress &&
+                SystemClock.elapsedRealtime() - startedAt > 3_000
+            ) {
+                // OpenVPN arrancó y se cerró: no tiene sentido esperar más a este servidor.
+                exited = true
+            }
         }
 
         override fun setConnectedVPN(uuid: String?) {}
@@ -89,6 +116,9 @@ class LockyVpnEngine(context: Context) : VpnEngine {
         }
 
         level = null
+        sawProgress = false
+        exited = false
+        startedAt = SystemClock.elapsedRealtime()
         setTunnelApp(appContext, apps?.firstOrNull())
         // Perfil "temporal": no queda guardado como perfil del usuario.
         ProfileManager.setTemporaryProfile(appContext, profile)
@@ -128,7 +158,7 @@ class LockyVpnEngine(context: Context) : VpnEngine {
     }
 
     override val state: VpnEngine.State
-        get() = when (level) {
+        get() = if (exited) VpnEngine.State.FAILED else when (level) {
             ConnectionStatus.LEVEL_CONNECTED -> VpnEngine.State.CONNECTED
             ConnectionStatus.LEVEL_AUTH_FAILED -> VpnEngine.State.FAILED
             null, ConnectionStatus.LEVEL_NOTCONNECTED -> VpnEngine.State.IDLE

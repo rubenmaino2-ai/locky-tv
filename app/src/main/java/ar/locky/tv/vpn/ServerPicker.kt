@@ -129,7 +129,7 @@ object ServerPicker {
             score = 0, pingMs = 0, speedBps = 1, sessions = 0,
             country = prefs.getString(KEY_LAST_GOOD_COUNTRY, "") ?: "",
             countryCode = prefs.getString(KEY_LAST_GOOD_CC, "") ?: "",
-            ovpnConfig = config
+            ovpnConfig = VpnGateClient.adapt(config)   // por si se guardó con una versión vieja
         )
     }
 
