@@ -17,6 +17,8 @@ El motor de VPN viene **adentro de Locky**: es el de la app libre **OpenVPN for 
 
 📄 **Página de instalación (con QR):** https://rubenmaino2-ai.github.io/locky-tv/
 
+🔢 **Código de Downloader:** `9371946` (abre la página de instalación)
+
 🔗 **Link fijo del APK** (siempre la última versión):
 `https://github.com/rubenmaino2-ai/locky-tv/releases/download/ultima/locky-tv.apk`
 
@@ -24,7 +26,7 @@ El motor de VPN viene **adentro de Locky**: es el de la app libre **OpenVPN for 
 
 1. **Instalá "Downloader"** desde Google Play del TV ("Downloader by AFTVnews", ícono naranja). Es gratis.
 2. **Permití que Downloader instale apps:** Configuración → Apps → Seguridad y restricciones → Fuentes desconocidas → activá *Downloader*. (El nombre del menú cambia un poco según la marca.)
-3. **Abrí Downloader**, escribí el **código de Downloader** de Locky (está en la página de instalación) o el link fijo de arriba, y tocá *Go*.
+3. **Abrí Downloader**, escribí el código **`9371946`** y tocá *Go*. Se abre la página de instalación adentro de Downloader: bajá hasta **Descargar el APK** y tocalo. (También podés escribir directamente el link fijo de arriba.)
 4. Cuando termine de bajar, Android pregunta si querés instalar: **Instalar**.
 5. **Si aparece "Google Play Protect"**: avisa porque Locky no viene de la tienda y Google no conoce al desarrollador. Tocá *Más detalles → Instalar igualmente*.
 6. **Abrí Locky** desde la fila de apps del TV. La primera vez que abras una app con VPN, Android puede pedir un permiso para que Locky cree la VPN: aceptalo.
@@ -44,7 +46,7 @@ Repetí el paso 3: el link y el código siempre apuntan a la última versión, y
 
 Cada cambio que se sube a `main` se compila solo con GitHub Actions (`.github/workflows/build.yml`), y el APK aparece en **Releases → Locky TV (última versión)**. Los cambios en otras ramas publican un APK aparte, **Locky TV (PRUEBA)**, para probar sin tocar la versión buena.
 
-La página de instalación está en `docs/` (GitHub Pages, rama `main`, carpeta `/docs`). Para mostrar el código de Downloader, completar `data-codigo` en `docs/index.html`.
+La página de instalación está en `docs/` (GitHub Pages, rama `main`, carpeta `/docs`). El código de Downloader (`9371946`, creado en go.aftvnews.com) está en `data-codigo` de `docs/index.html`.
 
 El motor de VPN es un submódulo de git (`vpncore/ics-openvpn`, fijado a una versión oficial). Para clonar el repo con todo: `git clone --recursive`.
 
