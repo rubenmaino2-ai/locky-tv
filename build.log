@@ -1,0 +1,190 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :vpncore
+Checking the license for package NDK (Side by side) 30.0.14904198 in /usr/local/lib/android/sdk/licenses
+License for package NDK (Side by side) 30.0.14904198 accepted.
+Preparing "Install NDK (Side by side) 30.0.14904198 v.30.0.14904198 rc1".
+"Install NDK (Side by side) 30.0.14904198 v.30.0.14904198 rc1" ready.
+Installing NDK (Side by side) 30.0.14904198 in /usr/local/lib/android/sdk/ndk/30.0.14904198
+"Install NDK (Side by side) 30.0.14904198 v.30.0.14904198 rc1" complete.
+"Install NDK (Side by side) 30.0.14904198 v.30.0.14904198 rc1" finished.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :vpncore:preBuild UP-TO-DATE
+> Task :vpncore:preSkeletonReleaseBuild UP-TO-DATE
+
+> Task :vpncore:configureCMakeRelWithDebInfo[arm64-v8a]
+Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+C/C++: OpenVPN 2.x version e6bc021
+C/C++: OpenVPN 3.x version c51d8d2
+
+> Task :vpncore:buildCMakeRelWithDebInfo[arm64-v8a]
+
+> Task :vpncore:configureCMakeRelWithDebInfo[armeabi-v7a]
+C/C++: OpenVPN 2.x version e6bc021
+C/C++: OpenVPN 3.x version c51d8d2
+
+> Task :vpncore:buildCMakeRelWithDebInfo[armeabi-v7a]
+C/C++: ninja: Entering directory `/home/runner/work/locky-tv/locky-tv/vpncore/.cxx/RelWithDebInfo/t5x1h3k2/armeabi-v7a'
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:56:25: warning: implicit conversion from 'unsigned long long' to 'BN_ULONG' (aka 'unsigned int') changes value from 18446744069414584319 to 4294967295 [-Wconstant-conversion]
+C/C++:    54 | ALIGN32 static const BN_ULONG def_p[P256_LIMBS] = {
+C/C++:       |                                                   ~
+C/C++:    55 |     0xffffffffffffffff, 0xffffffff00000000,
+C/C++:    56 |     0xffffffffffffffff, 0xfffffffeffffffff
+C/C++:       |                         ^~~~~~~~~~~~~~~~~~
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:56:5: warning: implicit conversion from 'unsigned long long' to 'BN_ULONG' (aka 'unsigned int') changes value from 18446744073709551615 to 4294967295 [-Wconstant-conversion]
+C/C++:    54 | ALIGN32 static const BN_ULONG def_p[P256_LIMBS] = {
+C/C++:       |                                                   ~
+C/C++:    55 |     0xffffffffffffffff, 0xffffffff00000000,
+C/C++:    56 |     0xffffffffffffffff, 0xfffffffeffffffff
+C/C++:       |     ^~~~~~~~~~~~~~~~~~
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:55:25: warning: implicit conversion from 'unsigned long long' to 'BN_ULONG' (aka 'unsigned int') changes value from 18446744069414584320 to 0 [-Wconstant-conversion]
+C/C++:    54 | ALIGN32 static const BN_ULONG def_p[P256_LIMBS] = {
+C/C++:       |                                                   ~
+C/C++:    55 |     0xffffffffffffffff, 0xffffffff00000000,
+C/C++:       |                         ^~~~~~~~~~~~~~~~~~
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:55:5: warning: implicit conversion from 'unsigned long long' to 'BN_ULONG' (aka 'unsigned int') changes value from 18446744073709551615 to 4294967295 [-Wconstant-conversion]
+C/C++:    54 | ALIGN32 static const BN_ULONG def_p[P256_LIMBS] = {
+C/C++:       |                                                   ~
+C/C++:    55 |     0xffffffffffffffff, 0xffffffff00000000,
+C/C++:       |     ^~~~~~~~~~~~~~~~~~
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:171:5: warning: 'memcpy' will always overflow; destination buffer has size 16, but size argument is 32 [-Wfortify-source]
+C/C++:   171 |     BN_MOD_INV(out, in, ecp_sm2p256_div_by_2, ecp_sm2p256_sub, def_p);
+C/C++:       |     ^
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:142:9: note: expanded from macro 'BN_MOD_INV'
+C/C++:   142 |         memcpy(u, in, 32);                         \
+C/C++:       |         ^
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:171:5: warning: 'memcpy' will always overflow; destination buffer has size 16, but size argument is 32 [-Wfortify-source]
+C/C++: /home/runner/work/locky-tv/locky-tv/vpncore/ics-openvpn/main/src/main/cpp/openssl/crypto/ec/ecp_sm2p256.c:143:9: note: expanded from macro 'BN_MOD_INV'
+C/C++:   143 |         memcpy(v, mod, 32);                        \
+C/C++:       |         ^
+C/C++: 6 warnings generated.
+
+> Task :vpncore:mergeSkeletonReleaseJniLibFolders
+> Task :vpncore:generateSkeletonReleaseBuildConfig
+> Task :vpncore:generateSkeletonReleaseResources
+> Task :vpncore:packageSkeletonReleaseResources
+> Task :vpncore:processSkeletonReleaseNavigationResources
+> Task :vpncore:mergeSkeletonReleaseNativeLibs
+> Task :vpncore:javaPreCompileSkeletonRelease
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:generateReleaseBuildConfig
+> Task :app:generateReleaseResources
+> Task :vpncore:parseSkeletonReleaseLocalResources
+> Task :vpncore:copySkeletonReleaseJniLibsProjectOnly
+> Task :app:packageReleaseResources
+> Task :app:processReleaseNavigationResources
+> Task :app:parseReleaseLocalResources
+> Task :vpncore:generateSkeletonReleaseRFile
+> Task :app:javaPreCompileRelease
+> Task :app:generateReleaseRFile
+> Task :app:mergeReleaseNativeLibs
+> Task :vpncore:writeSkeletonReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:checkReleaseAarMetadata
+> Task :app:compileReleaseNavigationResources
+> Task :app:stripReleaseDebugSymbols
+> Task :vpncore:compileSkeletonReleaseAidl
+> Task :app:mergeReleaseResources
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :vpncore:extractDeepLinksSkeletonRelease
+> Task :vpncore:mapSkeletonReleaseSourceSetPaths
+> Task :vpncore:processSkeletonReleaseManifest
+> Task :vpncore:compileSkeletonReleaseLibraryResources
+
+> Task :app:processReleaseMainManifest
+/home/runner/work/locky-tv/locky-tv/app/src/main/AndroidManifest.xml:78:9-84 Warning:
+	receiver#core.GetRestrictionReceiver was tagged at AndroidManifest.xml:78 to remove other declarations but no other declaration present
+
+> Task :app:processReleaseManifest
+> Task :app:mergeReleaseNativeDebugMetadata
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :vpncore:prepareSkeletonReleaseArtProfile
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseArtProfile
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :vpncore:generateSkeletonReleaseAssets UP-TO-DATE
+> Task :vpncore:mergeSkeletonReleaseAssets
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:extractProguardFiles
+> Task :vpncore:extractProguardFiles
+> Task :vpncore:prepareLintJarForPublish
+> Task :app:processReleaseResources
+> Task :vpncore:checkSkeletonReleaseAarMetadata
+> Task :vpncore:extractDeepLinksForAarSkeletonRelease
+> Task :vpncore:extractSkeletonReleaseAnnotations
+> Task :vpncore:writeSkeletonReleaseLintModelMetadata
+> Task :app:collectReleaseDependencies
+> Task :app:optimizeReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :vpncore:mergeSkeletonReleaseResources
+> Task :vpncore:stripSkeletonReleaseDebugSymbols
+> Task :vpncore:copySkeletonReleaseJniLibsProjectAndLocalJars
+> Task :vpncore:verifySkeletonReleaseResources
+> Task :app:mergeExtDexRelease
+> Task :vpncore:compileSkeletonReleaseKotlin
+
+> Task :vpncore:compileSkeletonReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :vpncore:processSkeletonReleaseJavaRes
+> Task :vpncore:bundleLibRuntimeToJarSkeletonRelease
+> Task :vpncore:bundleLibCompileToJarSkeletonRelease
+> Task :vpncore:generateSkeletonReleaseLintModel
+> Task :vpncore:createFullJarSkeletonRelease
+> Task :vpncore:mergeSkeletonReleaseGeneratedProguardFiles
+> Task :vpncore:mergeSkeletonReleaseConsumerProguardFiles
+> Task :vpncore:mergeSkeletonReleaseJavaResource
+> Task :vpncore:syncSkeletonReleaseLibJars
+> Task :vpncore:bundleSkeletonReleaseLocalLintAar
+> Task :vpncore:generateSkeletonReleaseLintVitalModel
+> Task :vpncore:bundleSkeletonReleaseAar
+> Task :vpncore:assembleSkeletonRelease
+> Task :vpncore:assembleRelease
+
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/locky-tv/locky-tv/app/src/main/java/ar/locky/tv/vpn/VpnGateClient.kt:25:17 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/locky-tv/locky-tv/app/src/main/java/ar/locky/tv/vpn/VpnGateClient.kt:25:59 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :vpncore:lintVitalAnalyzeSkeletonRelease
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1792275257804.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/locky-tv/locky-tv/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 4m 2s
+98 actionable tasks: 98 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.7.1/userguide/configuration_cache_enabling.html
