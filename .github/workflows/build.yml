@@ -22,18 +22,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # El motor de VPN (y sus piezas en C: OpenSSL, OpenVPN...) vienen como submódulos.
           submodules: recursive
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Herramientas de Android (SDK, NDK, CMake)
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: SWIG (lo pide la compilación en C del motor)
         run: sudo apt-get install -y swig
