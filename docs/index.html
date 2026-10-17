@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalar Locky TV</title>
+<meta name="description" content="Locky TV: abrí la app que quieras de tu Android TV a través de una VPN gratuita. Cómo instalarlo paso a paso.">
+<link rel="icon" href="locky-icono.webp" type="image/webp">
+<style>
+  /* ======================================================================
+     CONFIGURACIÓN — lo único que hace falta tocar
+     ----------------------------------------------------------------------
+     Código de Downloader: cuando lo crees en go.aftvnews.com, ponelo en
+     data-codigo (abajo, en <body>). Mientras esté vacío, la página muestra
+     el link largo en su lugar.
+     ====================================================================== */
+  :root {
+    --bg: #0E1411;
+    --surface: #18221C;
+    --surface-2: #223029;
+    --accent: #2FBF71;
+    --gold: #E5B83B;
+    --text: #EEF3EF;
+    --muted: #93A39A;
+    --on-accent: #0E1411;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px 48px; }
+
+  /* Portada */
+  .hero { position: relative; overflow: hidden; border-radius: 0 0 var(--radius) var(--radius); }
+  .hero img { display: block; width: 100%; height: auto; max-height: 460px; object-fit: cover; }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 45%, var(--bg) 100%);
+  }
+  .intro { position: relative; margin-top: -56px; z-index: 1; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 56px; height: 56px; border-radius: 14px; }
+  h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.15; margin: 0; }
+  .lead { color: var(--muted); font-size: 18px; margin: 12px 0 0; max-width: 640px; }
+
+  /* Bloque de descarga */
+  .get {
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+    background: var(--surface); border-radius: var(--radius); padding: 24px; margin-top: 28px;
+  }
+  .label { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+  .code { font: 700 clamp(40px, 10vw, 64px)/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--gold); letter-spacing: .06em; }
+  .longlink {
+    font: 14px/1.4 ui-monospace, Menlo, monospace; word-break: break-all;
+    background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin: 6px 0 0;
+  }
+  .btn {
+    display: inline-block; margin-top: 16px; padding: 12px 20px; border-radius: 999px;
+    background: var(--accent); color: var(--on-accent); font-weight: 700; text-decoration: none;
+  }
+  .qr { background: #fff; border-radius: 12px; padding: 10px; width: 170px; }
+  .qr img { display: block; width: 100%; height: auto; }
+  .qr-cap { color: var(--muted); font-size: 13px; text-align: center; margin: 6px 0 0; }
+
+  /* Pasos */
+  h2 { font-size: 24px; margin: 40px 0 12px; }
+  ol.steps { list-style: none; counter-reset: paso; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps > li {
+    counter-increment: paso; position: relative;
+    background: var(--surface); border-radius: var(--radius); padding: 16px 16px 16px 64px;
+  }
+  ol.steps > li::before {
+    content: counter(paso); position: absolute; left: 16px; top: 14px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent);
+    font-weight: 800; display: grid; place-items: center;
+  }
+  .steps strong { color: var(--text); }
+  .steps p { margin: 4px 0 0; color: var(--muted); }
+  .note {
+    border-left: 4px solid var(--gold); background: var(--surface);
+    border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 16px; margin-top: 16px;
+  }
+  .note p { margin: 0; }
+
+  /* Uso */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border-radius: var(--radius); padding: 16px; }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  footer { color: var(--muted); font-size: 14px; margin-top: 40px; border-top: 1px solid var(--surface-2); padding-top: 16px; }
+  footer p { margin: 6px 0; }
+
+  @media (max-width: 600px) {
+    .get { grid-template-columns: 1fr; }
+    .qr { width: 150px; }
+  }
+</style>
+</head>
+<body data-codigo="">
+
+<div class="hero"><img src="locky-poster.webp" alt="Locky, el caniche agente especial" width="1536" height="1024"></div>
+
+<main class="wrap">
+  <section class="intro">
+    <div class="brand">
+      <img src="locky-icono.webp" alt="" width="56" height="56">
+      <h1>Locky TV</h1>
+    </div>
+    <p class="lead">Elegís una app de tu Android TV y Locky la abre a través de una VPN gratuita. Solo esa app pasa por la VPN: el resto del TV sigue navegando normal. Todo con el control remoto.</p>
+  </section>
+
+  <section class="get" aria-labelledby="descarga">
+    <div>
+      <p class="label" id="descarga">Código para la app Downloader</p>
+      <div id="con-codigo" hidden>
+        <div class="code" id="codigo"></div>
+      </div>
+      <div id="sin-codigo">
+        <p class="longlink">github.com/rubenmaino2-ai/locky-tv/releases/download/ultima/locky-tv.apk</p>
+      </div>
+      <a class="btn" href="https://github.com/rubenmaino2-ai/locky-tv/releases/download/ultima/locky-tv.apk">Descargar el APK</a>
+    </div>
+    <div>
+      <div class="qr"><img src="qr-apk.svg" alt="Código QR del link de descarga de Locky" width="170" height="170"></div>
+      <p class="qr-cap">Bajarlo con el celular</p>
+    </div>
+  </section>
+
+  <h2>Instalación en el TV</h2>
+  <ol class="steps">
+    <li><strong>Instalá la app "Downloader"</strong>
+      <p>Buscala en Google Play del TV ("Downloader by AFTVnews", ícono naranja). Es gratis.</p></li>
+    <li><strong>Permití que Downloader instale apps</strong>
+      <p>En el TV: Configuración → Apps → Seguridad y restricciones → Fuentes desconocidas → activá <em>Downloader</em>. (El nombre exacto del menú cambia un poco según la marca del TV.)</p></li>
+    <li><strong>Abrí Downloader y escribí <span class="codigo-texto">el código de arriba</span></strong>
+      <p>En el cuadro de dirección escribí el código (o el link) y tocá <em>Go</em>. Se baja <em>locky-tv.apk</em> y Android pregunta si querés instalarlo: <em>Instalar</em>.</p></li>
+    <li><strong>Si aparece "Google Play Protect"</strong>
+      <p>Avisa porque Locky no viene de la tienda y Google no conoce al desarrollador. Tocá <em>Más detalles → Instalar igualmente</em>. Locky es software libre: su código completo está en GitHub.</p></li>
+    <li><strong>Abrí Locky</strong>
+      <p>Aparece en la fila de apps del TV. La primera vez que abras una app con VPN, Android puede pedirte un permiso para que Locky cree la VPN: aceptalo.</p></li>
+  </ol>
+
+  <div class="note">
+    <p><strong>Para actualizar:</strong> repetí el paso 3 con el mismo código. La versión nueva se instala encima, sin perder nada.</p>
+  </div>
+
+  <h2>Cómo se usa</h2>
+  <div class="grid">
+    <div class="card"><h3>1 · Elegís una app</h3><p>Mientras ves la bienvenida, Locky busca los mejores servidores públicos de VPN Gate.</p></div>
+    <div class="card"><h3>2 · Conecta solo esa app</h3><p>Mide la velocidad y la abre. Si está lenta, te ofrece probar otro servidor.</p></div>
+    <div class="card"><h3>3 · Volvés con "Atrás"</h3><p>Cuenta regresiva de 5 segundos y corta la VPN. También hay temporizador de apagado.</p></div>
+  </div>
+
+  <div class="note">
+    <p><strong>Ojo:</strong> los servidores de VPN Gate son de voluntarios: pueden ser lentos o caerse. Netflix, Disney+, Prime Video y los bancos suelen bloquear las VPN; Locky te avisa y te deja abrirlas sin VPN.</p>
+  </div>
+
+  <footer>
+    <p>Locky es una herramienta de VPN + lanzador de apps. No incluye ni distribuye apps de terceros: cada uno instala lo que quiera por su cuenta, desde sus fuentes oficiales.</p>
+    <p>Software libre (GPL v2). Motor de VPN: <a href="https://github.com/schwabe/ics-openvpn">OpenVPN for Android</a> de Arne Schwabe. Servidores: <a href="https://www.vpngate.net/">VPN Gate</a> (Universidad de Tsukuba). Código: <a href="https://github.com/rubenmaino2-ai/locky-tv">github.com/rubenmaino2-ai/locky-tv</a>.</p>
+  </footer>
+</main>
+
+<script>
+  // Si hay código de Downloader configurado (data-codigo en <body>), lo mostramos grande.
+  (function () {
+    var codigo = (document.body.getAttribute("data-codigo") || "").trim();
+    if (!codigo) return;
+    document.getElementById("codigo").textContent = codigo;
+    document.getElementById("con-codigo").hidden = false;
+    document.getElementById("sin-codigo").hidden = true;
+    var t = document.querySelectorAll(".codigo-texto");
+    for (var i = 0; i < t.length; i++) t[i].textContent = "el código " + codigo;
+  })();
+</script>
+</body>
+</html>
