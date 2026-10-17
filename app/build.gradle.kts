@@ -11,8 +11,8 @@ android {
         applicationId = "ar.locky.tv"
         minSdk = 23          // Android 6.0: lo pide el motor de VPN integrado
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.7.2"
+        versionCode = 11
+        versionName = "0.7.3"
 
         // Link de donaciones (por ejemplo https://ceneka.net/tu-pagina).
         // Vacío = el botón "Donar" no aparece. Fase 2: completar y listo.

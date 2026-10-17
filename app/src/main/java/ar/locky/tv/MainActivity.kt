@@ -319,6 +319,9 @@ class MainActivity : Activity() {
         val label = TvApps.labelOf(this, packageName)
         val retry = { startConnect(packageName, launchAfter, avoidHost) }
 
+        // La caja negra arranca limpia en cada intento: así "Ver detalles" muestra solo lo nuevo.
+        LockyApplication.clearCrash(this)
+
         // 1. Permiso de VPN de Android (solo la primera vez).
         engine.permissionIntent()?.let { intent ->
             if (!askPermission(intent, REQ_VPN)) {
@@ -690,7 +693,9 @@ class MainActivity : Activity() {
     private fun showEngineLog() {
         val pad = (16 * resources.displayMetrics.density).toInt()
         val text = TextView(this).apply {
-            this.text = LockyVpnEngine.recentLog(this@MainActivity)
+            val crash = LockyApplication.lastCrash(this@MainActivity)
+            this.text = (if (crash != null) "$crash\n\n== Registro del motor ==\n" else "") +
+                LockyVpnEngine.recentLog(this@MainActivity)
             textSize = 11f
             typeface = android.graphics.Typeface.MONOSPACE
             setPadding(pad, pad, pad, pad)
