@@ -9,8 +9,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Permisos que trae el motor de VPN y Locky no necesita -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+    <!-- Permisos que trae el motor de VPN y Locky no necesita.
+         (RECEIVE_BOOT_COMPLETED NO se saca: el motor lo necesita para su tarea de
+         "mantener la VPN viva"; sin ese permiso Android tira error y la VPN se cae.) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
 
     <!-- Funciona en TV y también en celulares/tablets -->
