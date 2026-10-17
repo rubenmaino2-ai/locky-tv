@@ -1,29 +1,56 @@
-# Compila el APK automáticamente cada vez que se sube un cambio a "main".
-# El APK queda en: pestaña "Releases" del repo -> "Locky TV (última versión)".
+# Compila el APK automáticamente cada vez que se sube un cambio.
+#  - Rama "main"  -> Releases -> "Locky TV (última versión)"  (locky-tv.apk)
+#  - Otras ramas  -> Releases -> "Locky TV (PRUEBA ...)"       (locky-tv-prueba.apk)
+#    Así se pueden probar cambios grandes sin tocar la versión buena.
 name: Compilar APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**', '!ci-logs' ]
+    tags-ignore: [ '**' ]
   workflow_dispatch:   # permite compilar a mano desde la pestaña Actions
 
 permissions:
   contents: write
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          # El motor de VPN (y sus piezas en C: OpenSSL, OpenVPN...) vienen como submódulos.
+          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+
+      - name: Herramientas de Android (SDK, NDK, CMake)
+        uses: android-actions/setup-android@v3
+
+      - name: SWIG (lo pide la compilación en C del motor)
+        run: sudo apt-get install -y swig
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '9.7.1'
+
+      - name: Guardar lo compilado en C entre una vez y otra (acelera mucho)
+        uses: actions/cache@v4
+        with:
+          path: |
+            vpncore/.cxx
+            vpncore/ics-openvpn/main/build/ovpnassets
+          key: motor-c-${{ hashFiles('.gitmodules', 'vpncore/build.gradle.kts') }}-${{ github.sha }}
+          restore-keys: |
+            motor-c-${{ hashFiles('.gitmodules', 'vpncore/build.gradle.kts') }}-
 
       - name: Preparar la clave de firma (desde los secretos de GitHub)
         env:
@@ -39,22 +66,57 @@ jobs:
       - name: Compilar
         env:
           LOCKY_KEYSTORE_PASSWORD: ${{ secrets.LOCKY_KEYSTORE_PASSWORD }}
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      # Copia del registro de compilación en la rama "ci-logs" (sirve para revisar errores).
+      - name: Guardar registro de compilación
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          LOG="$RUNNER_TEMP/build.log"
+          [ -f "$LOG" ] || echo "(no llegó a compilar: falló un paso anterior)" > "$LOG"
+          DIR="$RUNNER_TEMP/ci-logs"
+          mkdir -p "$DIR" && cd "$DIR"
+          git init -q -b ci-logs
+          {
+            echo "rama: ${GITHUB_REF_NAME}"
+            echo "commit: ${GITHUB_SHA}"
+            echo "compilación: #${GITHUB_RUN_NUMBER}"
+            echo "resultado: ${RESULT}"
+            echo "fecha: $(date -u)"
+          } > info.txt
+          tail -c 3000000 "$LOG" > build.log
+          git add . && git -c user.name=ci -c user.email=ci@locky commit -qm "log #${GITHUB_RUN_NUMBER} (${GITHUB_REF_NAME})"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-logs:ci-logs
 
       - name: Preparar APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk locky-tv.apk
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then NAME=locky-tv.apk; else NAME=locky-tv-prueba.apk; fi
+          cp app/build/outputs/apk/release/app-release.apk "$NAME"
+          echo "APK_NAME=$NAME" >> "$GITHUB_ENV"
+          ls -lh "$NAME"
 
       - name: Guardar APK como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: locky-tv-apk
-          path: locky-tv.apk
+          path: ${{ env.APK_NAME }}
 
-      - name: Publicar en Releases (siempre la última versión)
+      - name: Publicar en Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete ultima --yes --cleanup-tag || true
-          gh release create ultima locky-tv.apk \
-            --title "Locky TV (última versión · compilación #${{ github.run_number }})" \
-            --notes "APK compilado automáticamente. Descargá locky-tv.apk e instalalo en el TV."
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            gh release delete ultima --yes --cleanup-tag || true
+            gh release create ultima "$APK_NAME" \
+              --title "Locky TV (última versión · compilación #${GITHUB_RUN_NUMBER})" \
+              --notes "APK compilado automáticamente. Descargá locky-tv.apk e instalalo en el TV."
+          else
+            gh release delete prueba --yes --cleanup-tag || true
+            gh release create prueba "$APK_NAME" --prerelease --target "$GITHUB_SHA" \
+              --title "Locky TV (PRUEBA · rama ${GITHUB_REF_NAME} · compilación #${GITHUB_RUN_NUMBER})" \
+              --notes "Versión de prueba, todavía en desarrollo. Para el uso de todos los días, usá 'Locky TV (última versión)'."
+          fi

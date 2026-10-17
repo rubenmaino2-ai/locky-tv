@@ -16,3 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "Locky"
 include(":app")
+
+// Motor de VPN integrado (OpenVPN for Android, versión sin pantallas)
+include(":vpncore")

@@ -1,15 +1,14 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.application")   // trae Kotlin incorporado (herramientas de Android 9)
 }
 
 android {
     namespace = "ar.locky.tv"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "ar.locky.tv"
-        minSdk = 21          // Android 5.0: cubre prácticamente todos los Android TV
+        minSdk = 23          // Android 6.0: lo pide el motor de VPN integrado
         targetSdk = 34
         versionCode = 7
         versionName = "0.6.1"
@@ -17,6 +16,12 @@ android {
         // Link de donaciones (por ejemplo https://ceneka.net/tu-pagina).
         // Vacío = el botón "Donar" no aparece. Fase 2: completar y listo.
         buildConfigField("String", "DONATION_URL", "\"\"")
+
+        // El motor de VPN viene en un solo "sabor": sin pantallas propias.
+        missingDimensionStrategy("implementation", "skeleton")
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     // Firma fija: así cada APK nuevo se instala ENCIMA del anterior sin desinstalar.
@@ -49,17 +54,22 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    packaging {
+        jniLibs {
+            // OpenVPN corre como un programa aparte: Android tiene que poder "desempaquetarlo".
+            useLegacyPackaging = true
+            // Partes del motor que Locky no usa (OpenVPN 3 y test de cifrado).
+            excludes += listOf("**/libovpn3.so", "**/libosslspeedtest.so")
+        }
     }
 
     buildFeatures {
         buildConfig = true
-        aidl = true   // para hablar con "OpenVPN for Android"
     }
 }
 
 dependencies {
+    implementation(project(":vpncore"))   // motor de VPN integrado
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("com.google.zxing:core:3.5.3") // genera los códigos QR
 }

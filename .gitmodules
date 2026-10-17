@@ -1,0 +1,4 @@
+[submodule "vpncore/ics-openvpn"]
+	path = vpncore/ics-openvpn
+	url = https://github.com/schwabe/ics-openvpn.git
+	shallow = true
