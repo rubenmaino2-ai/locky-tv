@@ -25,7 +25,20 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Preparar la clave de firma (desde los secretos de GitHub)
+        env:
+          KEYSTORE_B64: ${{ secrets.LOCKY_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Falta el secreto LOCKY_KEYSTORE_B64 (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/locky.keystore"
+          echo "LOCKY_KEYSTORE_PATH=$RUNNER_TEMP/locky.keystore" >> "$GITHUB_ENV"
+
       - name: Compilar
+        env:
+          LOCKY_KEYSTORE_PASSWORD: ${{ secrets.LOCKY_KEYSTORE_PASSWORD }}
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Preparar APK

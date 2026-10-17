@@ -19,24 +19,29 @@ android {
         buildConfigField("String", "DONATION_URL", "\"\"")
     }
 
-    // Firma fija: así cada APK nuevo se instala ENCIMA del anterior
-    // sin tener que desinstalar en el TV.
+    // Firma fija: así cada APK nuevo se instala ENCIMA del anterior sin desinstalar.
+    // La clave NO está en el código: GitHub la pone desde sus "secretos" al compilar
+    // (LOCKY_KEYSTORE_B64 y LOCKY_KEYSTORE_PASSWORD). Así nadie puede firmar un Locky falso.
+    val keystorePath = System.getenv("LOCKY_KEYSTORE_PATH")
+    val keystorePassword = System.getenv("LOCKY_KEYSTORE_PASSWORD")
     signingConfigs {
         create("locky") {
-            storeFile = file("locky-debug.keystore")
-            storePassword = "android"
-            keyAlias = "locky"
-            keyPassword = "android"
+            if (keystorePath != null && keystorePassword != null) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                keyAlias = "locky"
+                keyPassword = keystorePassword
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("locky")
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("locky")
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("locky")
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("locky")
         }
     }
 
