@@ -5,4 +5,5 @@
     <string name="reconnect">Cambiar servidor</string>
     <string name="disconnect">Desconectar</string>
     <string name="donate">♥ Apoyar</string>
+    <string name="license_notice">Motor de VPN: OpenVPN for Android (Arne Schwabe) · Software libre GPL v2 · Código: github.com/rubenmaino2-ai/locky-tv</string>
 </resources>

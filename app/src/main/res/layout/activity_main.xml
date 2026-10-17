@@ -294,6 +294,19 @@
                 android:shadowRadius="6"
                 android:textColor="@color/text"
                 android:textSize="18sp" />
+
+            <!-- Aviso de licencia (GPL): el motor de VPN es OpenVPN for Android -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:alpha="0.7"
+                android:gravity="center"
+                android:shadowColor="#CC000000"
+                android:shadowRadius="4"
+                android:text="@string/license_notice"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

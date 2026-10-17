@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Personalización del motor de VPN integrado (vpncore) sin tocar su código:
+     un recurso con el mismo nombre acá "pisa" al del motor. -->
+<resources>
+    <!-- Ícono de la notificación "VPN conectada": el candado de Locky -->
+    <drawable name="ic_stat_vpn">@drawable/ic_notif</drawable>
+</resources>

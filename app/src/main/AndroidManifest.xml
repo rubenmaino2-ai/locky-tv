@@ -19,7 +19,6 @@
 
     <!-- Android 11+ exige declarar qué otras apps queremos "ver" -->
     <queries>
-        <package android:name="de.blinkt.openvpn" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
@@ -76,5 +75,8 @@
         <receiver android:name="de.blinkt.openvpn.OnBootReceiver" tools:node="remove" />
         <receiver android:name="core.GetRestrictionReceiver" tools:node="remove" />
         <meta-data android:name="android.content.APP_RESTRICTIONS" tools:node="remove" />
+        <!-- Esta sí la usa el motor por dentro, pero ninguna otra app tiene que poder abrirla -->
+        <activity android:name="de.blinkt.openvpn.LaunchVPN"
+            android:exported="false" tools:replace="android:exported" />
     </application>
 </manifest>

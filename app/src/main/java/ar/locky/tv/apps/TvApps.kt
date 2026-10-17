@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
-import ar.locky.tv.vpn.OpenVpnEngine
 
 data class TvApp(
     val packageName: String,
@@ -16,7 +15,9 @@ data class TvApp(
 /** Lista las apps instaladas en el TV y las abre. */
 object TvApps {
 
-    private val HIDDEN = setOf(OpenVpnEngine.PACKAGE)
+    // "OpenVPN for Android" ya no hace falta (el motor está adentro de Locky):
+    // si quedó instalada, no la mostramos en la grilla.
+    private val HIDDEN = setOf("de.blinkt.openvpn")
 
     fun load(context: Context, lastUsed: String?): List<TvApp> {
         val pm = context.packageManager
