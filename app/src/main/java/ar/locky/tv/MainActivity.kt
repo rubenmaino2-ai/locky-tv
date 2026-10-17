@@ -329,7 +329,9 @@ class MainActivity : Activity() {
 
         // 2. Servidores (si ya estaban elegidos, es instantáneo).
         showProgress("Buscando servidores…", "Para abrir $label con VPN")
-        var candidates = serversAsync(refresh = avoidHost != null).await()
+        // (Si ya estaban elegidos, se reusan: con la VPN prendida, volver a medir pings
+        //  daría números falsos porque irían por adentro del túnel.)
+        var candidates = serversAsync().await()
         val current = currentServer
         candidates = when {
             avoidHost != null -> candidates.filter { it.server.hostName != avoidHost }
