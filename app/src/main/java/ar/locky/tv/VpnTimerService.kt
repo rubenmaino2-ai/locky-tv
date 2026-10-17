@@ -10,13 +10,12 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import ar.locky.tv.vpn.OpenVpnEngine
+import ar.locky.tv.vpn.LockyVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Temporizador de apagado: corta la VPN a la hora elegida aunque Locky esté cerrado
@@ -93,9 +92,8 @@ class VpnTimerService : Service() {
 
     private fun shutDownVpn() {
         scope.launch {
-            val engine = OpenVpnEngine(this@VpnTimerService)
-            val bound = withTimeoutOrNull(8_000) { engine.bind() } ?: false
-            if (bound) engine.stop()
+            val engine = LockyVpnEngine(this@VpnTimerService)
+            engine.stop()
             engine.release()
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().remove(KEY_END_AT).apply()
             stopSelf()

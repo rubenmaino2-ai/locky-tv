@@ -51,6 +51,7 @@ android {
         getByName("main") {
             manifest.srcFile(File(ics, "src/main/AndroidManifest.xml"))
             java.directories.add(File(ics, "src/main/java").path)
+            kotlin.directories.add(File(ics, "src/main/java").path)   // el motor tiene algún archivo Kotlin
             aidl.directories.add(File(ics, "src/main/aidl").path)
             res.directories.add(File(ics, "src/main/res").path)
             // El binario de OpenVPN para Android 6 a 8 (lo genera la compilación en C).
@@ -59,6 +60,7 @@ android {
         maybeCreate("skeleton").apply {
             manifest.srcFile(File(ics, "src/skeleton/AndroidManifest.xml"))
             java.directories.add(File(ics, "src/skeleton/java").path)
+            kotlin.directories.add(File(ics, "src/skeleton/java").path)
             res.directories.add(File(ics, "src/skeleton/res").path)
         }
     }

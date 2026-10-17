@@ -5,7 +5,6 @@ import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Gravity
@@ -19,20 +18,25 @@ import android.widget.Toast
 import ar.locky.tv.apps.AppGridAdapter
 import ar.locky.tv.apps.TvApp
 import ar.locky.tv.apps.TvApps
+import ar.locky.tv.apps.VpnBlockers
 import ar.locky.tv.util.NetworkUtil
 import ar.locky.tv.util.QrCode
 import ar.locky.tv.util.SpeedTest
-import ar.locky.tv.vpn.OpenVpnEngine
+import ar.locky.tv.vpn.LockyVpnEngine
 import ar.locky.tv.vpn.RankedServer
 import ar.locky.tv.vpn.ServerPicker
+import ar.locky.tv.vpn.VpnEngine
 import ar.locky.tv.vpn.VpnGateClient
+import ar.locky.tv.vpn.VpnServer
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -40,42 +44,53 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Flujo de Locky:
- *  1. ¿Ya hay VPN activa? -> directo a la grilla de apps.
- *  2. ¿Está instalado "OpenVPN for Android"? Si no, explicamos cómo instalarlo.
- *  3. Pedimos los permisos (solo la primera vez).
- *  4. Bajamos la lista de VPN Gate y probamos servidores hasta que uno conecte.
- *  5. Mostramos las apps instaladas; al elegir una, se abre.
+ * Flujo de Locky (motor de VPN integrado, una VPN por app):
+ *  1. Bienvenida con Locky mientras, por detrás, baja la lista de VPN Gate y elige
+ *     los mejores servidores.
+ *  2. Grilla de apps del TV. Elegís una.
+ *  3. Si la app suele bloquear VPNs, avisa y te deja abrirla con o sin VPN.
+ *  4. Conecta la VPN SOLO para esa app (y Locky, para medir la velocidad):
+ *     el resto del TV sigue navegando directo.
+ *  5. Mide la velocidad y abre la app.
+ *  6. Al volver con "Atrás": cuenta regresiva y corta la VPN.
  */
 class MainActivity : Activity() {
 
     companion object {
-        private const val REQ_API = 101
         private const val REQ_VPN = 102
         private const val MAX_TRIES = 10                 // servidores a probar como máximo
         private const val CONNECT_TIMEOUT_MS = 20_000L   // espera por servidor
         private const val SPLASH_MIN_MS = 10_000L        // bienvenida con el logo de Locky
+        private const val SERVERS_MAX_AGE_MS = 15 * 60_000L   // la lista elegida vale 15 min
+        private const val SLOW_MBPS = 4.0                // menos que esto: "conexión lenta"
         private const val KEY_LAST_APP = "last_app"
         private const val KEY_RETURN_FROM = "return_from"   // app que abrimos y de la que se espera volver
         private const val RETURN_COUNTDOWN_S = 5            // segundos antes de cortar la VPN al volver
-        private const val OPENVPN_STORE_URL =
-            "https://play.google.com/store/apps/details?id=de.blinkt.openvpn"
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private lateinit var engine: OpenVpnEngine
+    private lateinit var engine: VpnEngine
     private lateinit var prefs: SharedPreferences
 
     private var flowJob: Job? = null
     private var monitorJob: Job? = null
     private var pendingPermission: CompletableDeferred<Boolean>? = null
-    private var connectedCountry: String? = null
-    private var connectedMbps: Double? = null
-    private var speedJob: Job? = null
-    private lateinit var btnTimer: Button
     private var apps: List<TvApp> = emptyList()
 
+    // Servidores ya elegidos (para no volver a bajar la lista con cada app).
+    private var serversTask: Deferred<List<RankedServer>>? = null
+    private var rankedServers: List<RankedServer> = emptyList()
+    private var rankedAt = 0L
+
+    // La conexión actual.
+    private var currentServer: VpnServer? = null
+    private var connectedMbps: Double? = null
+
+    /** Qué hacer con "Atrás" cuando hay un mensaje en pantalla (null = salir de Locky). */
+    private var onBackFromMessage: (() -> Unit)? = null
+
     private lateinit var statusChip: TextView
+    private lateinit var btnTimer: Button
     private lateinit var btnReconnect: Button
     private lateinit var btnDisconnect: Button
     private lateinit var btnDonate: Button
@@ -105,19 +120,19 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        engine = OpenVpnEngine(this)
+        engine = LockyVpnEngine(this)
         prefs = getSharedPreferences("locky", MODE_PRIVATE)
         bindViews()
 
-        btnReconnect.setOnClickListener { startFlow(forceNew = true) }
+        btnReconnect.setOnClickListener { changeServer() }
         btnDisconnect.setOnClickListener { disconnect() }
         btnTimer.setOnClickListener { cycleTimer() }
         btnDonate.visibility = if (BuildConfig.DONATION_URL.isNotBlank()) View.VISIBLE else View.GONE
         btnDonate.setOnClickListener { showDonation() }
-        appsGrid.setOnItemClickListener { _, _, position, _ -> openApp(apps[position]) }
+        appsGrid.setOnItemClickListener { _, _, position, _ -> onAppChosen(apps[position]) }
 
         // Bienvenida: Locky en pantalla completa como mínimo SPLASH_MIN_MS,
-        // mientras por detrás ya se está conectando la VPN.
+        // mientras por detrás ya se están eligiendo los servidores.
         // Excepción: si volvemos de una app que abrió Locky (y la VPN sigue prendida),
         // no hay bienvenida: onResume muestra directamente la cuenta regresiva.
         if (isReturningFromApp()) {
@@ -125,7 +140,7 @@ class MainActivity : Activity() {
         } else {
             splashUntil = SystemClock.elapsedRealtime() + SPLASH_MIN_MS
             splashPanel.requestFocus()
-            startFlow(forceNew = false)
+            startup()
         }
     }
 
@@ -152,114 +167,203 @@ class MainActivity : Activity() {
     }
 
     @Deprecated("Usamos la API clásica de Activity a propósito (sin librerías extra)")
+    override fun onBackPressed() {
+        val back = onBackFromMessage
+        if (messagePanel.visibility == View.VISIBLE && back != null) {
+            back()
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
+        }
+    }
+
+    @Deprecated("Usamos la API clásica de Activity a propósito (sin librerías extra)")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_API || requestCode == REQ_VPN) {
+        if (requestCode == REQ_VPN) {
             pendingPermission?.complete(resultCode == RESULT_OK)
             pendingPermission = null
         }
     }
 
-    // ---------------------------------------------------------------- flujo principal
+    // ---------------------------------------------------------------- arranque
 
-    private fun startFlow(forceNew: Boolean) {
+    /** Al abrir Locky: preparar los servidores y mostrar las apps. */
+    private fun startup() {
         flowJob?.cancel()
-        monitorJob?.cancel()
         flowJob = scope.launch {
-            try {
-                connectFlow(forceNew)
+            // ¿Ya hay un túnel de Locky andando? Directo a la grilla.
+            if (NetworkUtil.isVpnActive(this@MainActivity) && LockyVpnEngine.tunnelApp(this@MainActivity) != null) {
+                currentServer = ServerPicker.lastGoodServer(this@MainActivity)
+                showApps(info = "VPN activa")
+                return@launch
+            }
+
+            showProgress("Buscando servidores…", "Descargando la lista de VPN Gate", chip = "●  Preparando…")
+            // Esperamos lo que dure la bienvenida; si tarda más, seguimos por detrás.
+            val wait = (splashUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0) + 2_000
+            val servers = withTimeoutOrNull(wait) { serversAsync().await() }
+            val info = when {
+                servers == null -> "Sigo buscando servidores… ya podés elegir una app"
+                servers.isEmpty() -> "No pude bajar la lista de servidores: lo reintento al elegir una app"
+                else -> "Servidores listos · elegí una app"
+            }
+            showApps(info)
+        }
+    }
+
+    /**
+     * Baja la lista de VPN Gate y elige los mejores servidores para TU casa
+     * (ping real, cercanía, velocidad, castigos). Si ya está elegida y es reciente, la reusa.
+     */
+    private fun serversAsync(refresh: Boolean = false): Deferred<List<RankedServer>> {
+        serversTask?.let { if (it.isActive) return it }
+        val fresh = SystemClock.elapsedRealtime() - rankedAt < SERVERS_MAX_AGE_MS
+        if (!refresh && fresh && rankedServers.isNotEmpty()) return CompletableDeferred(rankedServers)
+
+        return scope.async {
+            val list = try {
+                VpnGateClient.fetchServers(File(cacheDir, "vpngate.csv"))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                showError("Algo salió mal", e.message ?: e.javaClass.simpleName)
+                null
+            }
+            val result = if (list != null) {
+                val ranked = ServerPicker.rank(this@MainActivity, list.servers)
+                ranked.filter { it.alive }.take(MAX_TRIES).ifEmpty { ranked.take(MAX_TRIES) }
+            } else {
+                // Ni lista nueva ni guardada: probamos con el último que anduvo.
+                ServerPicker.lastGoodServer(this@MainActivity)
+                    ?.let { listOf(RankedServer(it, ServerPicker.ping(it), 0)) }
+                    ?: emptyList()
+            }
+            if (result.isNotEmpty()) {
+                rankedServers = result
+                rankedAt = SystemClock.elapsedRealtime()
+            }
+            result
+        }.also { serversTask = it }
+    }
+
+    // ---------------------------------------------------------------- elegir y abrir una app
+
+    private fun onAppChosen(app: TvApp) {
+        prefs.edit().putString(KEY_LAST_APP, app.packageName).apply()
+        if (VpnBlockers.isLikelyBlocker(app.packageName, app.label)) {
+            showMessage(
+                title = "${app.label} suele bloquear las VPN",
+                body = "Muchas apps de streaming y de bancos detectan las VPN gratuitas: " +
+                    "pueden no reproducir, dar error o mostrar menos contenido.\n¿Cómo la abro?",
+                primary = "Abrir con VPN" to { openWithVpn(app.packageName) },
+                secondary = "Abrir sin VPN" to { openWithoutVpn(app.packageName) },
+                onBack = { showApps() }
+            )
+            return
+        }
+        openWithVpn(app.packageName)
+    }
+
+    private fun openWithVpn(packageName: String) {
+        val tunnelReady = NetworkUtil.isVpnActive(this) && LockyVpnEngine.tunnelApp(this) == packageName
+        if (tunnelReady) {
+            launchApp(packageName)
+        } else {
+            startConnect(packageName, launchAfter = true)
+        }
+    }
+
+    /** Sin VPN: la app no está en el túnel, así que va directo por internet normal. */
+    private fun openWithoutVpn(packageName: String) {
+        showApps()
+        if (!TvApps.launch(this, packageName)) {
+            Toast.makeText(this, "No pude abrir ${TvApps.labelOf(this, packageName)}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun launchApp(packageName: String) {
+        showApps()
+        if (TvApps.launch(this, packageName)) {
+            // Al volver a Locky (botón Atrás), onResume ofrece cortar la VPN.
+            prefs.edit().putString(KEY_RETURN_FROM, packageName).apply()
+        } else {
+            Toast.makeText(this, "No pude abrir ${TvApps.labelOf(this, packageName)}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** "Cambiar servidor": rearma el túnel de la misma app con otro servidor. */
+    private fun changeServer() {
+        val app = LockyVpnEngine.tunnelApp(this) ?: return
+        startConnect(app, launchAfter = false, avoidHost = currentServer?.hostName)
+    }
+
+    // ---------------------------------------------------------------- conectar
+
+    private fun startConnect(packageName: String, launchAfter: Boolean, avoidHost: String? = null) {
+        flowJob?.cancel()
+        flowJob = scope.launch {
+            try {
+                connectFlow(packageName, launchAfter, avoidHost)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showError("Algo salió mal", e.message ?: e.javaClass.simpleName) {
+                    startConnect(packageName, launchAfter, avoidHost)
+                }
             }
         }
     }
 
-    private suspend fun connectFlow(forceNew: Boolean) {
-        // 1. Si ya hay una VPN andando, no hace falta hacer nada.
-        if (!forceNew && NetworkUtil.isVpnActive(this)) {
-            showApps(connectedInfo = "Tu VPN ya estaba activa")
-            return
-        }
+    private suspend fun connectFlow(packageName: String, launchAfter: Boolean, avoidHost: String?) {
+        val label = TvApps.labelOf(this, packageName)
+        val retry = { startConnect(packageName, launchAfter, avoidHost) }
 
-        // 2. El motor tiene que estar instalado.
-        if (!engine.isInstalled()) {
-            showEngineMissing()
-            return
-        }
-
-        // 3. Conectarnos a OpenVPN for Android y pedir permisos (solo la primera vez).
-        showProgress("Preparando…", "Conectando con OpenVPN for Android")
-        val bound = withTimeoutOrNull(10_000) { engine.bind() } ?: false
-        if (!bound) {
-            showError(
-                "No pude comunicarme con OpenVPN",
-                "Abrí la app \"OpenVPN for Android\" una vez, volvé a Locky y tocá Reintentar."
-            )
-            return
-        }
-        engine.apiPermissionIntent(packageName)?.let { intent ->
-            if (!askPermission(intent, REQ_API)) {
-                showError("Falta un permiso", "Hay que permitir que Locky controle OpenVPN. Tocá Reintentar y aceptá.")
-                return
-            }
-        }
-        engine.vpnPermissionIntent()?.let { intent ->
+        // 1. Permiso de VPN de Android (solo la primera vez).
+        engine.permissionIntent()?.let { intent ->
             if (!askPermission(intent, REQ_VPN)) {
-                showError("Falta un permiso", "Hay que aceptar el permiso de VPN de Android. Tocá Reintentar y aceptá.")
+                showError("Falta un permiso", "Hay que aceptar el permiso de VPN de Android. Tocá Reintentar y aceptá.", retry)
                 return
             }
         }
-        engine.listenStatus()
 
-        if (forceNew) {
-            engine.stop()
-            waitUntilVpnDown()
+        // 2. Servidores (si ya estaban elegidos, es instantáneo).
+        showProgress("Buscando servidores…", "Para abrir $label con VPN")
+        var candidates = serversAsync(refresh = avoidHost != null).await()
+        val current = currentServer
+        candidates = when {
+            avoidHost != null -> candidates.filter { it.server.hostName != avoidHost }
+            // Si ya hay un túnel (para otra app), probamos primero el mismo servidor: es el más rápido.
+            current != null && NetworkUtil.isVpnActive(this) ->
+                listOf(RankedServer(current, 0, 0)) + candidates.filter { it.server.hostName != current.hostName }
+            else -> candidates
+        }
+        if (candidates.isEmpty()) {
+            showError("No pude bajar la lista de servidores", "Revisá la conexión a internet del TV y tocá Reintentar.", retry)
+            return
         }
 
-        // 4. Buscar servidores (si vpngate.net no responde, usa la última lista guardada).
-        showProgress("Buscando servidores…", "Descargando la lista de VPN Gate")
-        val list = try {
-            VpnGateClient.fetchServers(File(cacheDir, "vpngate.csv"))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        }
-
-        // 5. Elegir los mejores para TU casa: ping real, cercanía, velocidad, castigos.
-        val candidates: List<RankedServer> = if (list != null) {
-            val origin = if (list.fromCache) " (lista guardada)" else ""
-            showProgress("Eligiendo el mejor servidor…", "Midiendo la distancia a los servidores$origin")
-            val ranked = ServerPicker.rank(this, list.servers)
-            ranked.filter { it.alive }.take(MAX_TRIES).ifEmpty { ranked.take(MAX_TRIES) }
-        } else {
-            // Ni lista nueva ni guardada: probamos con el último que anduvo.
-            val last = ServerPicker.lastGoodServer(this)
-            if (last == null) {
-                showError("No pude bajar la lista de servidores", "Revisá la conexión a internet del TV y tocá Reintentar.")
-                return
-            }
-            listOf(RankedServer(last, ServerPicker.ping(last), 0))
-        }
-
-        // 6. Probar uno por uno hasta que conecte.
+        // 3. Probar uno por uno hasta que conecte. Solo esta app (y Locky) van por la VPN.
         for ((index, ranked) in candidates.withIndex()) {
             val server = ranked.server
             val serverInfo = "VPN Gate · ${server.hostName} · ${server.countryEs}"
-            val pingText = if (ranked.alive) " · ${ranked.pingMs} ms" else ""
+            val pingText = if (ranked.alive && ranked.pingMs > 0) " · ${ranked.pingMs} ms" else ""
             showProgress(
-                "Conectando…",
+                "Conectando $label…",
                 "$serverInfo$pingText  (servidor ${index + 1} de ${candidates.size})"
             )
-            engine.start(server.ovpnConfig)
-            if (waitForConnection()) {
+            val started = try {
+                engine.start(server.ovpnConfig, setOf(packageName))
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false   // configuración que el motor no acepta: siguiente servidor
+            }
+            if (started && waitForConnection()) {
                 ServerPicker.recordSuccess(this, server)
-                connectedCountry = server.countryEs
-                connectedMbps = null
-                showApps(connectedInfo = serverInfo)
+                currentServer = server
+                afterConnected(packageName, label, serverInfo, launchAfter)
                 return
             }
             ServerPicker.recordFailure(this, server)
@@ -269,16 +373,46 @@ class MainActivity : Activity() {
 
         showError(
             "Ningún servidor respondió",
-            "Probé ${candidates.size} servidores y no conectó ninguno. Suele pasar a ratos: probá de nuevo en unos minutos."
+            "Probé ${candidates.size} servidores y no conectó ninguno. Suele pasar a ratos: probá de nuevo en unos minutos.",
+            retry
         )
+    }
+
+    /** Conectado: medimos la velocidad real por la VPN y abrimos la app. */
+    private suspend fun afterConnected(packageName: String, label: String, serverInfo: String, launchAfter: Boolean) {
+        connectedMbps = null
+        showProgress("¡Conectado!", "$serverInfo\nMidiendo la velocidad…", chip = "●  VPN conectada")
+        val mbps = SpeedTest.measureMbps()
+        connectedMbps = mbps
+        val speedText = mbps?.let { "Velocidad: ${SpeedTest.describe(it)}" } ?: "No pude medir la velocidad"
+
+        if (!launchAfter) {
+            showApps(info = "$serverInfo\n$speedText")
+            return
+        }
+        if (mbps != null && mbps < SLOW_MBPS) {
+            showMessage(
+                title = "Conexión lenta",
+                body = "Este servidor da ${SpeedTest.describe(mbps)}.\n¿Abro $label igual o pruebo otro servidor?",
+                primary = "Abrir igual" to { launchApp(packageName) },
+                secondary = "Probar otro servidor" to {
+                    startConnect(packageName, launchAfter = true, avoidHost = currentServer?.hostName)
+                },
+                onBack = { showApps() }
+            )
+            return
+        }
+        launchApp(packageName)
     }
 
     private suspend fun waitForConnection(): Boolean {
         val start = SystemClock.elapsedRealtime()
         while (SystemClock.elapsedRealtime() - start < CONNECT_TIMEOUT_MS) {
-            if (engine.isConnected() || NetworkUtil.isVpnActive(this)) return true
-            if (engine.isAuthFailed()) return false
-            delay(500)
+            when (engine.state) {
+                VpnEngine.State.CONNECTED -> return true
+                VpnEngine.State.FAILED -> return false
+                else -> delay(500)
+            }
         }
         return false
     }
@@ -305,14 +439,16 @@ class MainActivity : Activity() {
     }
 
     private fun disconnect() {
-        scope.launch { disconnectVpn() }
+        scope.launch {
+            disconnectVpn()
+            refreshStatus()
+        }
     }
 
     /** Corta la VPN. Devuelve true si quedó efectivamente apagada. */
     private suspend fun disconnectVpn(): Boolean {
         VpnTimerService.cancel(this)   // si había temporizador, ya no hace falta
-        val bound = withTimeoutOrNull(5_000) { engine.bind() } ?: false
-        if (bound) engine.stop()
+        engine.stop()
         connectedMbps = null
         delay(1_500)
         refreshStatus()
@@ -340,11 +476,10 @@ class MainActivity : Activity() {
             body = countdownText(RETURN_COUNTDOWN_S),
             primary = "Seguir conectado" to {
                 countdownJob?.cancel()
-                showApps(connectedInfo = "VPN activa")
+                showApps()
             },
             secondary = "Desconectar ya" to { disconnectNow() }
         )
-        refreshStatus()
         countdownJob = scope.launch {
             for (s in RETURN_COUNTDOWN_S downTo 1) {
                 messageBody.text = countdownText(s)
@@ -369,50 +504,32 @@ class MainActivity : Activity() {
                 title = "Listo, VPN desconectada",
                 body = "Tu TV volvió a navegar normal. ¡Hasta la próxima!",
                 primary = "Salir" to { finish() },
-                secondary = "Volver a conectar" to { startFlow(forceNew = false) }
+                secondary = "Elegir otra app" to { showApps() }
             )
         } else {
-            showApps(connectedInfo = "VPN activa")
+            showApps()
         }
     }
 
     // ---------------------------------------------------------------- apps
 
-    private fun showApps(connectedInfo: String) {
-        splashTitle.text = "¡Conectado!"
-        splashTitle.setTextColor(color(R.color.accent))
-        splashDetail.text = connectedInfo
-        splashSpinner.visibility = View.GONE
+    /** Muestra la grilla de apps. [info] se ve abajo del logo si la bienvenida sigue en pantalla. */
+    private fun showApps(info: String? = null) {
+        onBackFromMessage = null
+        if (info != null) {
+            val connected = NetworkUtil.isVpnActive(this)
+            splashTitle.text = if (connected) "¡Conectado!" else "¡Listo!"
+            splashTitle.setTextColor(color(R.color.accent))
+            splashDetail.text = info
+            splashSpinner.visibility = View.GONE
+        }
         apps = TvApps.load(this, prefs.getString(KEY_LAST_APP, null))
         appsGrid.adapter = AppGridAdapter(apps)
         showPanel(appsPanel)
-        btnReconnect.visibility = View.VISIBLE
+        refreshStatus()
         releaseSplash(focusTarget = appsGrid)
         appsGrid.setSelection(0)
         startMonitor()
-        if (connectedMbps == null) runSpeedTest()
-    }
-
-    /** Mide la velocidad real por la VPN y la muestra (bienvenida + indicador de arriba). */
-    private fun runSpeedTest() {
-        speedJob?.cancel()
-        speedJob = scope.launch {
-            delay(1_500)
-            if (!NetworkUtil.isVpnActive(this@MainActivity)) return@launch
-            val mbps = SpeedTest.measureMbps() ?: return@launch
-            connectedMbps = mbps
-            if (splashPanel.visibility == View.VISIBLE) {
-                splashDetail.text = "${splashDetail.text}\nVelocidad: ${SpeedTest.describe(mbps)}"
-            }
-            refreshStatus()
-            if (mbps < 4) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Conexión lenta (${SpeedTest.describe(mbps)}). Podés tocar \"Cambiar servidor\".",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
     }
 
     // ---------------------------------------------------------------- temporizador de apagado
@@ -435,21 +552,6 @@ class MainActivity : Activity() {
         refreshStatus()
     }
 
-    private fun openApp(app: TvApp) {
-        if (!NetworkUtil.isVpnActive(this)) {
-            Toast.makeText(this, "La VPN no está conectada. Reconectando…", Toast.LENGTH_LONG).show()
-            startFlow(forceNew = false)
-            return
-        }
-        prefs.edit().putString(KEY_LAST_APP, app.packageName).apply()
-        if (TvApps.launch(this, app.packageName)) {
-            // Al volver a Locky (botón Atrás), onResume ofrece cortar la VPN.
-            prefs.edit().putString(KEY_RETURN_FROM, app.packageName).apply()
-        } else {
-            Toast.makeText(this, "No pude abrir ${app.label}", Toast.LENGTH_LONG).show()
-        }
-    }
-
     /** Cada 3 segundos revisa si la VPN sigue arriba y actualiza el indicador. */
     private fun startMonitor() {
         monitorJob?.cancel()
@@ -463,21 +565,24 @@ class MainActivity : Activity() {
 
     private fun refreshStatus() {
         val appsVisible = appsPanel.visibility == View.VISIBLE
+        val tunnelApp = LockyVpnEngine.tunnelApp(this)
         if (NetworkUtil.isVpnActive(this)) {
-            val parts = mutableListOf("●  VPN conectada")
-            connectedCountry?.let { parts += it }
+            val parts = mutableListOf("●  VPN")
+            tunnelApp?.let { parts[0] = "●  VPN para ${TvApps.labelOf(this, it)}" }
+            currentServer?.let { parts += it.countryEs }
             connectedMbps?.let { parts += if (it < 10) String.format("%.1f Mbps", it) else "${it.toInt()} Mbps" }
             statusChip.text = parts.joinToString(" · ")
-            statusChip.setTextColor(color(if ((connectedMbps ?: 99.0) < 4) R.color.gold else R.color.accent))
-            btnReconnect.text = getString(R.string.reconnect)
+            statusChip.setTextColor(color(if ((connectedMbps ?: 99.0) < SLOW_MBPS) R.color.gold else R.color.accent))
+            // "Cambiar servidor" solo tiene sentido para un túnel de Locky.
+            btnReconnect.visibility = if (appsVisible && tunnelApp != null) View.VISIBLE else View.GONE
             btnDisconnect.visibility = if (appsVisible) View.VISIBLE else View.GONE
             val left = VpnTimerService.remainingMs(this)
             btnTimer.text = if (left > 0) "⏱ ${VpnTimerService.format(left)}" else "⏱ Apagar en…"
             btnTimer.visibility = if (appsVisible) View.VISIBLE else View.GONE
         } else {
-            statusChip.text = "●  VPN desconectada"
-            statusChip.setTextColor(color(R.color.danger))
-            btnReconnect.text = "Conectar"
+            statusChip.text = "●  VPN apagada · elegí una app para conectar"
+            statusChip.setTextColor(color(R.color.text_secondary))
+            btnReconnect.visibility = View.GONE
             btnDisconnect.visibility = View.GONE
             btnTimer.visibility = View.GONE
         }
@@ -496,10 +601,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showProgress(title: String, detail: String) {
+    private fun showProgress(title: String, detail: String, chip: String = "●  Conectando…") {
+        onBackFromMessage = null
         progressTitle.text = title
         progressDetail.text = detail
-        statusChip.text = "●  Conectando…"
+        statusChip.text = chip
         statusChip.setTextColor(color(R.color.gold))
         showPanel(progressPanel)
         // Si la bienvenida está en pantalla, el progreso se ve ahí abajo del logo.
@@ -511,7 +617,7 @@ class MainActivity : Activity() {
 
     /**
      * Saca la bienvenida, pero recién cuando se cumplieron los 10 segundos.
-     * Mientras tanto, el logo sigue en pantalla con el resultado ("¡Conectado!").
+     * Mientras tanto, el logo sigue en pantalla con el resultado.
      */
     private fun releaseSplash(focusTarget: View) {
         if (splashPanel.visibility != View.VISIBLE) {
@@ -534,8 +640,10 @@ class MainActivity : Activity() {
         body: String,
         qr: String? = null,
         primary: Pair<String, () -> Unit>,
-        secondary: Pair<String, () -> Unit>? = null
+        secondary: Pair<String, () -> Unit>? = null,
+        onBack: (() -> Unit)? = null
     ) {
+        onBackFromMessage = onBack
         messageTitle.text = title
         messageBody.text = body
         if (qr != null) {
@@ -555,45 +663,22 @@ class MainActivity : Activity() {
         } else {
             btnSecondary.visibility = View.GONE
         }
-        statusChip.text = "●  VPN desconectada"
-        statusChip.setTextColor(color(R.color.danger))
         showPanel(messagePanel)
+        refreshStatus()
         splashTitle.text = title
-        splashTitle.setTextColor(color(R.color.danger))
+        splashTitle.setTextColor(color(R.color.gold))
         splashDetail.text = ""
         splashSpinner.visibility = View.GONE
         releaseSplash(focusTarget = btnPrimary)
     }
 
-    private fun showError(title: String, body: String) {
-        showMessage(title, body, primary = "Reintentar" to { startFlow(forceNew = false) })
-    }
-
-    private fun showEngineMissing() {
+    private fun showError(title: String, body: String, retry: () -> Unit) {
         showMessage(
-            title = "Falta instalar \"OpenVPN for Android\"",
-            body = "Locky usa esa app gratuita (de Arne Schwabe) para conectar la VPN. " +
-                "Instalala desde la tienda del TV, o escaneá el código con el celular para ver dónde bajarla.",
-            qr = OPENVPN_STORE_URL,
-            primary = "Abrir tienda" to { openStore() },
-            secondary = "Ya la instalé" to { startFlow(forceNew = false) }
+            title, body,
+            primary = "Reintentar" to retry,
+            secondary = "Ver apps" to { showApps() },
+            onBack = { showApps() }
         )
-    }
-
-    private fun openStore() {
-        val attempts = listOf(
-            Uri.parse("market://details?id=${OpenVpnEngine.PACKAGE}"),
-            Uri.parse(OPENVPN_STORE_URL)
-        )
-        for (uri in attempts) {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, uri))
-                return
-            } catch (e: ActivityNotFoundException) {
-                // probamos la siguiente opción
-            }
-        }
-        Toast.makeText(this, "No encontré una tienda en este TV. Usá el código QR.", Toast.LENGTH_LONG).show()
     }
 
     private fun showDonation() {
