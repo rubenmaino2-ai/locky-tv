@@ -41,6 +41,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.7.1'
+          # El motor trae su propio "wrapper" de Gradle, que no usamos (compilamos con este).
+          validate-wrappers: false
 
       - name: Guardar lo compilado en C entre una vez y otra (acelera mucho)
         uses: actions/cache@v4
